@@ -115,6 +115,8 @@ def run_analyzer() -> pd.DataFrame:
         get_yahoo_strong_buys,
         get_zacks_strong_buys,
         get_morningstar_ratings,
+        get_insider_buyers,
+        get_relative_strength,
         compute_consensus,
     )
 
@@ -123,9 +125,12 @@ def run_analyzer() -> pd.DataFrame:
     yahoo_data       = get_yahoo_strong_buys(universe)
     zacks_buys       = get_zacks_strong_buys()
     morningstar_data = get_morningstar_ratings(universe)
+    insider_buyers   = get_insider_buyers()
+    rel_strength     = get_relative_strength(universe)
 
     df = compute_consensus(
-        universe, yahoo_data, zacks_buys, morningstar_data, vanguard_weights
+        universe, yahoo_data, zacks_buys, morningstar_data,
+        vanguard_weights, insider_buyers, rel_strength
     )
     return df
 
@@ -152,7 +157,9 @@ def send_email(df: pd.DataFrame):
           <td style="padding:8px 12px;text-align:center;">{row.get('Yahoo SB','–')}</td>
           <td style="padding:8px 12px;text-align:center;">{row.get('Zacks #1','–')}</td>
           <td style="padding:8px 12px;text-align:center;">{row.get('Morningstar ★★★★','–')}</td>
-          <td style="padding:8px 12px;text-align:center;">{row.get('Vanguard Wt%','–')}</td>
+          <td style="padding:8px 12px;text-align:center;">{row.get('Insider Buy','–')}</td>
+          <td style="padding:8px 12px;text-align:center;">{row.get('EPS Revision ↑','–')}</td>
+          <td style="padding:8px 12px;text-align:center;">{row.get('Beats S&P','–')}</td>
           <td style="padding:8px 12px;text-align:center;">${row.get('Price','–')}</td>
           <td style="padding:8px 12px;text-align:center;">{row.get('Upside %','–')}%</td>
         </tr>"""
@@ -170,7 +177,9 @@ def send_email(df: pd.DataFrame):
             <th style="padding:10px 12px;">Yahoo</th>
             <th style="padding:10px 12px;">Zacks</th>
             <th style="padding:10px 12px;">Morningstar</th>
-            <th style="padding:10px 12px;">Vanguard%</th>
+            <th style="padding:10px 12px;">Insider</th>
+            <th style="padding:10px 12px;">EPS Rev</th>
+            <th style="padding:10px 12px;">Beats S&P</th>
             <th style="padding:10px 12px;">Price</th>
             <th style="padding:10px 12px;">Upside</th>
           </tr>
