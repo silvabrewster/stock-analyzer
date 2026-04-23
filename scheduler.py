@@ -2,29 +2,22 @@
 Stock Convergence Scheduler
 ============================
 Runs the analyzer every morning at 7:00 AM,
-emails top results to silvabrayden0@gmail.com,
+emails top results via Resend API,
 and saves a running Excel log over time.
-
-Run once to start:
-    python scheduler.py
 """
 
 import schedule
 import time
-import smtplib
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
+import requests as req
 from datetime import datetime
 import pandas as pd
 
 # ── config ───────────────────────────────────────────────────────────────────
 
-EMAIL_FROM    = "silvabrayden0@gmail.com"
+EMAIL_FROM    = "onboarding@resend.dev"
 EMAIL_TO      = "silvabrayden0@gmail.com"
-EMAIL_PASS    = "bzmwjvbkuuechsgq"
+RESEND_KEY    = "re_cWJizFpm_1zrGKUJ2djd7S5mbPQHKJorY"
 RUN_TIME      = "07:00"
 EXCEL_LOG     = "stock_results_log.xlsx"
 TOP_N         = 10
@@ -32,7 +25,6 @@ TOP_N         = 10
 # ── run analyzer ─────────────────────────────────────────────────────────────
 
 def run_analyzer() -> pd.DataFrame:
-    """Imports and runs the analyzer, returns results DataFrame."""
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Running analyzer...")
 
     from analyzer import (
@@ -58,7 +50,6 @@ def run_analyzer() -> pd.DataFrame:
 # ── save to excel ─────────────────────────────────────────────────────────────
 
 def save_to_excel(df: pd.DataFrame):
-    """Appends today's top results to the running Excel log."""
     today = datetime.now().strftime("%Y-%m-%d")
     top   = df.head(TOP_N).copy()
     top.insert(0, "Date", today)
@@ -72,25 +63,24 @@ def save_to_excel(df: pd.DataFrame):
     updated.to_excel(EXCEL_LOG, index=False)
     print(f"  ✓ Results saved to {EXCEL_LOG}")
 
-# ── send email ────────────────────────────────────────────────────────────────
+# ── send email via resend ─────────────────────────────────────────────────────
 
 def send_email(df: pd.DataFrame):
-    """Sends top stock picks via Gmail."""
     today = datetime.now().strftime("%B %d, %Y")
     top   = df.head(TOP_N)
 
-    # Build HTML table
     rows = ""
-    for _, row in top.iterrows():
-        score = row["Consensus Score"]
-        color = "#2d6a2d" if score >= 70 else "#7a6a00"
+    for i, (_, row) in enumerate(top.iterrows()):
+        score    = row["Consensus Score"]
+        color    = "#2d6a2d" if score >= 70 else "#7a6a00"
+        bg_score = "#e6f4e6" if score >= 70 else "#fff8dc"
+        bg_row   = "#f9f9f9" if i % 2 == 0 else "white"
         rows += f"""
-        <tr>
+        <tr style="background:{bg_row};">
           <td style="padding:8px 12px;font-weight:600;">{row['Ticker']}</td>
           <td style="padding:8px 12px;text-align:center;">
-            <span style="background:{'#e6f4e6' if score >= 70 else '#fff8dc'};
-                         color:{color};padding:3px 10px;border-radius:12px;
-                         font-weight:600;">{int(score)}</span>
+            <span style="background:{bg_score};color:{color};padding:3px 10px;
+                         border-radius:12px;font-weight:600;">{int(score)}</span>
           </td>
           <td style="padding:8px 12px;text-align:center;">{row['Sources Agree']}</td>
           <td style="padding:8px 12px;text-align:center;">{row.get('Yahoo SB','–')}</td>
@@ -105,7 +95,6 @@ def send_email(df: pd.DataFrame):
     <html><body style="font-family:Arial,sans-serif;color:#222;max-width:700px;margin:auto;">
       <h2 style="color:#1a1a2e;">📈 Stock Convergence Report — {today}</h2>
       <p>Top {TOP_N} stocks where multiple analysis sources agree on a <strong>Strong Buy</strong>.</p>
-
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
           <tr style="background:#1a1a2e;color:white;">
@@ -120,11 +109,8 @@ def send_email(df: pd.DataFrame):
             <th style="padding:10px 12px;">Upside</th>
           </tr>
         </thead>
-        <tbody>
-          {''.join([f'<tr style="background:{"#f9f9f9" if i%2==0 else "white"}">' + rows.split('<tr>')[i+1] for i in range(len(top))])}
-        </tbody>
+        <tbody>{rows}</tbody>
       </table>
-
       <br>
       <p style="font-size:12px;color:#888;">
         Score legend: Yahoo(30pts) + Zacks(30pts) + Morningstar(25pts) + Vanguard(15pts)<br>
@@ -134,29 +120,24 @@ def send_email(df: pd.DataFrame):
     </body></html>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"📈 Stock Convergence Report — {today}"
-    msg["From"]    = EMAIL_FROM
-    msg["To"]      = EMAIL_TO
-    msg.attach(MIMEText(html, "html"))
-
-    # Attach Excel log
-    if os.path.exists(EXCEL_LOG):
-        with open(EXCEL_LOG, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header(
-                "Content-Disposition",
-                f"attachment; filename={EXCEL_LOG}"
-            )
-            msg.attach(part)
-
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(EMAIL_FROM, EMAIL_PASS)
-            server.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
-        print(f"  ✓ Email sent to {EMAIL_TO}")
+        response = req.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": EMAIL_FROM,
+                "to": [EMAIL_TO],
+                "subject": f"📈 Stock Convergence Report — {today}",
+                "html": html,
+            }
+        )
+        if response.status_code in (200, 201):
+            print(f"  ✓ Email sent to {EMAIL_TO}")
+        else:
+            print(f"  ✗ Email failed: {response.status_code} {response.text}")
     except Exception as e:
         print(f"  ✗ Email failed: {e}")
 
@@ -189,11 +170,9 @@ if __name__ == "__main__":
   Press Ctrl+C to stop.
     """)
 
-    # Run once immediately on startup
     print("  Running first scan now...")
     daily_job()
 
-    # Then schedule daily at 7:00 AM
     schedule.every().day.at(RUN_TIME).do(daily_job)
 
     print(f"\n  ✓ Scheduled for {RUN_TIME} AM every day.")
