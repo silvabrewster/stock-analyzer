@@ -1,4 +1,3 @@
-"""
 Stock Convergence Scheduler
 ============================
 Runs the analyzer every morning at 7:00 AM,
