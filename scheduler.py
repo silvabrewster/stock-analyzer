@@ -126,48 +126,9 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
     """
 
     try:
-    response = req.post(
-    "https://api.resend.com/emails",
-    headers={
-        "Authorization": f"Bearer {RESEND_KEY}",
-        "Content-Type": "application/json"
-    },
-    json={
-        "from": EMAIL_FROM,
-        "to": [EMAIL_TO],
-        "subject": f"📈 Stock Report — {today}",
-        "html": html
-    }
-)
-
-print(response.status_code)
-print(response.text)
-    headers={
-        "Authorization": f"Bearer {RESEND_KEY}",
-        "Content-Type": "application/json"
-    },
-    json={
-        "from": EMAIL_FROM,
-        "to": [EMAIL_TO],
-        "subject": f"📈 Stock Report — {today}",
-        "html": html
-    }
-)
-
-print(response.status_code)
-print(response.text)
-            }
-        )
-
-        if response.status_code in (200, 201):
-            print(f"✓ Email sent to {EMAIL_TO}")
-        else:
-            print(f"✗ Email failed: {response.text}")
-
-    except Exception as e:
-        print(f"✗ Email failed: {e}")
-
-
+df, market, warning = run_analyzer()
+send_email(df, market, warning)
+print("✓ Email attempted.")
 # ── daily job ─────────────────────────────────────────────────────────────────
 def daily_job():
     print(f"\n{'='*55}")
