@@ -150,20 +150,17 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
 
 
 # ── daily job ─────────────────────────────────────────────────────────────────
-
 def daily_job():
-    print(f"\n{'='*50}")
-    print(f"Daily Stock Scan — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    print(f"{'='*50}")
+    print(f"\n{'='*55}")
+    print(f"  Daily Stock Scan — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"{'='*55}")
 
     try:
         df, market, warning = run_analyzer()
         send_email(df, market, warning)
-        print(f"\n✓ Done! Next run at {RUN_TIME} UTC tomorrow.")
+        print(f"\n  ✓ Done! Next run at {RUN_TIME} UTC tomorrow.")
     except Exception as e:
-        print(f"\n✗ Error: {e}")
-
-
+        print(f"\n  ✗ Error: {e}")
 # ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
