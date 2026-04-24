@@ -126,9 +126,10 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
     """
 
     try:
-df, market, warning = run_analyzer()
-send_email(df, market, warning)
-print("✓ Email attempted.")
+try:
+    df, market, warning = run_analyzer()
+    send_email(df, market, warning)
+    print(f"\n  ✓ Email sent (or attempted).")
 # ── daily job ─────────────────────────────────────────────────────────────────
 def daily_job():
     print(f"\n{'='*55}")
