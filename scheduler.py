@@ -2,13 +2,11 @@
 Stock Convergence Scheduler v3.0
 ==================================
 Runs analyzer daily at 7:00 AM Pacific (14:00 UTC),
-emails a rich report via Resend, saves to Google Drive.
+emails a rich report via Resend, 
 """
 
 import schedule
 import time
-import os
-import io
 import requests as req
 from datetime import datetime
 import pandas as pd
@@ -17,11 +15,7 @@ EMAIL_FROM      = "onboarding@resend.dev"
 EMAIL_TO        = "silvabrayden0@gmail.com"
 RESEND_KEY      = "re_cWJizFpm_1zrGKUJ2djd7S5mbPQHKJorY"
 RUN_TIME        = "14:00"   # 7:00 AM Pacific (UTC-7)
-EXCEL_LOG       = "stock_results_log.xlsx"
 TOP_N           = 10
-DRIVE_FOLDER_ID = "1NK1gDvWvszHPC6GS3Jmi5O9C4sr9Tn-n"
-CREDENTIALS     = "credentials.json"
-
 # ── run analyzer ─────────────────────────────────────────────────────────────
 
 def run_analyzer() -> tuple[pd.DataFrame, dict]:
@@ -182,7 +176,8 @@ def daily_job():
     print(f"{'='*55}")
     try:
         df, market, warning = run_analyzer()
-        save_to_drive(df)
+df, market, warning = run_analyzer()
+send_email(df, market, warning)
         send_email(df, market, warning)
         print(f"\n  ✓ Done! Next run at {RUN_TIME} UTC tomorrow.")
     except Exception as e:
