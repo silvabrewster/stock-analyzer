@@ -126,8 +126,22 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
     """
 
     try:
-     response = req.post(
+    response = req.post(
     "https://api.resend.com/emails",
+    headers={
+        "Authorization": f"Bearer {RESEND_KEY}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "from": EMAIL_FROM,
+        "to": [EMAIL_TO],
+        "subject": f"📈 Stock Report — {today}",
+        "html": html
+    }
+)
+
+print(response.status_code)
+print(response.text)
     headers={
         "Authorization": f"Bearer {RESEND_KEY}",
         "Content-Type": "application/json"
