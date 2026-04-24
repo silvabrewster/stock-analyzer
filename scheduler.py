@@ -2,7 +2,6 @@
 Stock Convergence Scheduler v3.0 (Railway Fixed)
 """
 
-import time
 import os
 import io
 import json
@@ -99,16 +98,22 @@ def save_to_drive(df: pd.DataFrame):
 
 # ── analyzer ─────────────────────────────────────────────
 
-def run_analyzer() -> tuple[pd.DataFrame, dict, str | None]:
+def run_analyzer():
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Running analyzer...")
 
     from analyzer import (
-        build_universe, get_market_conditions,
-        get_vanguard_top_holdings, get_yahoo_strong_buys,
-        get_zacks_strong_buys, get_morningstar_ratings,
-        get_insider_buyers, get_relative_strength,
-        compute_consensus, check_sector_concentration,
-        load_streaks, load_yesterday_top, save_streaks,
+        build_universe,
+        get_market_conditions,
+        get_vanguard_top_holdings,
+        get_yahoo_strong_buys,
+        get_zacks_strong_buys,
+        get_morningstar_ratings,
+        get_insider_buyers,
+        get_relative_strength,
+        compute_consensus,
+        load_streaks,
+        load_yesterday_top,
+        save_streaks,
     )
 
     universe = build_universe()
@@ -124,20 +129,25 @@ def run_analyzer() -> tuple[pd.DataFrame, dict, str | None]:
     rs = get_relative_strength(universe)
 
     df = compute_consensus(
-        universe, yahoo_data, zacks_buys, ms_data,
-        vanguard_w, insiders, rs, old_streaks, yesterday_top
+        universe,
+        yahoo_data,
+        zacks_buys,
+        ms_data,
+        vanguard_w,
+        insiders,
+        rs,
+        old_streaks,
+        yesterday_top
     )
 
     top10 = df.head(10)["Ticker"].tolist()
     save_streaks(top10, old_streaks)
 
-    warning = check_sector_concentration(df, yahoo_data)
-
-    return df, market, warning
+    return df, market
 
 # ── email ────────────────────────────────────────────────
 
-def send_email(df: pd.DataFrame, market: dict, warning: str | None):
+def send_email(df: pd.DataFrame):
     today = datetime.now().strftime("%B %d, %Y")
     top = df.head(TOP_N)
 
@@ -168,8 +178,10 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
             }
         )
 
-        print("  ✓ Email sent" if response.status_code in (200, 201)
-              else f"  ✗ Email failed: {response.text}")
+        if response.status_code in (200, 201):
+            print("  ✓ Email sent")
+        else:
+            print(f"  ✗ Email failed: {response.text}")
 
     except Exception as e:
         print(f"  ✗ Email error: {e}")
@@ -178,14 +190,14 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
 
 def daily_job():
     try:
-        df, market, warning = run_analyzer()
+        df, market = run_analyzer()
         save_to_drive(df)
-        send_email(df, market, warning)
+        send_email(df)
         print("  ✓ Done")
     except Exception as e:
         print(f"  ✗ Error: {e}")
 
-# ── entry (Railway runs this once) ───────────────────────
+# ── entry ────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("Running job (Railway)...")
