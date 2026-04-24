@@ -127,6 +127,8 @@ def send_email(df: pd.DataFrame, market: dict, warning: str | None):
 
     try:
         response = req.post(
+            print(response.status_code)
+print(response.text)
             "https://api.resend.com/emails",
             headers={
                 "Authorization": f"Bearer {RESEND_KEY}",
@@ -154,11 +156,10 @@ def daily_job():
     print(f"\n{'='*55}")
     print(f"  Daily Stock Scan — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print(f"{'='*55}")
-
     try:
         df, market, warning = run_analyzer()
         send_email(df, market, warning)
-        print(f"\n  ✓ Done! Next run at {RUN_TIME} UTC tomorrow.")
+        print(f"\n  ✓ Email sent (or attempted).")
     except Exception as e:
         print(f"\n  ✗ Error: {e}")
 # ── main ──────────────────────────────────────────────────────────────────────
