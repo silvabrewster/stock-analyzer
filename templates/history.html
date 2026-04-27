@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convergence — History</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280; --green: #4ade80;
+      --red: #f87171; --yellow: #fbbf24;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+    main { position: relative; z-index: 1; padding: 32px; max-width: 1200px; margin: 0 auto; }
+    h2 { font-family: 'DM Serif Display', serif; font-size: 22px; font-weight: 400; margin-bottom: 16px; }
+    .section { margin-bottom: 40px; }
+    .table-wrap { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
+    th { padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf2); }
+    td { padding: 12px 16px; }
+    .tk { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--gold); font-size: 14px; }
+    .score-pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 13px; }
+    .score-high { background: rgba(74,222,128,0.1); color: var(--green); }
+    .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); }
+    .score-low  { background: rgba(107,114,128,0.1); color: var(--muted); }
+    .rank-num { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 12px; width: 28px; display: inline-block; }
+    .bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .bar-track { width: 80px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .bar-fill  { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); border-radius: 2px; }
+    .appear-count { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+    .streak-fire { color: var(--yellow); }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}" class="active">History</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+<main>
+
+  <div class="section">
+    <h2>🏆 All-Time Top Performers</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Stocks that consistently score highest across all scans</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Ticker</th><th>Avg Score</th><th>Max Score</th>
+            <th>Appearances</th><th>Max Streak</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, s in enumerate(top_all_time) %}
+          <tr>
+            <td><span class="rank-num">{{ i+1 }}</span></td>
+            <td><span class="tk">{{ s.ticker }}</span></td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar-track"><div class="bar-fill" style="width:{{ s.avg_score }}%;"></div></div>
+                <span class="score-pill {{ 'score-high' if s.avg_score >= 70 else ('score-mid' if s.avg_score >= 45 else 'score-low') }}">
+                  {{ '%0.0f'|format(s.avg_score) }}
+                </span>
+              </div>
+            </td>
+            <td><span class="score-pill score-high">{{ '%0.0f'|format(s.max_score) }}</span></td>
+            <td><span class="appear-count">{{ s.appearances }}x</span></td>
+            <td>
+              {% if s.max_streak >= 3 %}
+                <span class="streak-fire">🔥{{ s.max_streak }}d</span>
+              {% else %}
+                <span style="color:var(--muted);font-size:12px;">{{ s.max_streak }}d</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not top_all_time %}
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">
+            No history yet — check back after a few daily scans.
+          </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📅 Daily #1 Pick</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">The highest-scoring stock from each day's scan</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Top Pick</th><th>Score</th><th>Sources</th><th>Upside</th><th>Sector</th></tr>
+        </thead>
+        <tbody>
+          {% for d in daily %}
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ d.scan_date }}</td>
+            <td><span class="tk">{{ d.ticker }}</span></td>
+            <td>
+              <span class="score-pill {{ 'score-high' if d.score >= 70 else ('score-mid' if d.score >= 45 else 'score-low') }}">
+                {{ '%0.0f'|format(d.score) }}
+              </span>
+            </td>
+            <td style="color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;">{{ d.sources or '–' }}</td>
+            <td style="color:{{ '#4ade80' if (d.upside_pct or 0) >= 15 else ('#fbbf24' if (d.upside_pct or 0) >= 5 else '#f87171') }};">
+              {{ ('%0.1f'|format(d.upside_pct) + '%') if d.upside_pct else '–' }}
+            </td>
+            <td style="font-size:12px;color:var(--muted);">{{ d.sector or '–' }}</td>
+          </tr>
+          {% endfor %}
+          {% if not daily %}
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">
+            No history yet — check back after a few daily scans.
+          </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>
