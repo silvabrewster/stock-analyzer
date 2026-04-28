@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convergence — Research Checklist</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+
+    main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
+
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; font-weight: 400; margin-bottom: 6px; }
+    .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+
+    /* ticker input */
+    .ticker-input-row {
+      display: flex; gap: 12px; margin-bottom: 32px;
+    }
+    .ticker-input-row input {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 18px;
+      color: var(--text); font-family: 'DM Mono', monospace;
+      font-size: 18px; text-transform: uppercase;
+      outline: none; transition: border-color 0.2s;
+      width: 160px; letter-spacing: 0.1em;
+    }
+    .ticker-input-row input:focus { border-color: var(--gold); }
+    .ticker-input-row input::placeholder { color: var(--muted); font-size: 14px; letter-spacing: 0; }
+    .ticker-input-row button {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #0b0e14; border: none; border-radius: 8px;
+      padding: 12px 24px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .ticker-input-row button:hover { opacity: 0.85; }
+
+    /* score summary */
+    #summary { display: none; margin-bottom: 28px; }
+    .summary-card {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px;
+      display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    }
+    .summary-score {
+      font-family: 'DM Serif Display', serif; font-size: 52px;
+      line-height: 1; color: var(--gold);
+    }
+    .summary-info { flex: 1; }
+    .summary-ticker { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+    .summary-label { font-size: 12px; color: var(--muted); }
+    .summary-signals { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .sig-pill {
+      font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500;
+    }
+    .sig-on  { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+    .sig-off { background: rgba(107,114,128,0.08); color: var(--muted); border: 1px solid var(--border); text-decoration: line-through; }
+
+    /* checklist */
+    .section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); margin-bottom: 12px; margin-top: 28px;
+    }
+    .checklist { display: flex; flex-direction: column; gap: 10px; }
+    .check-item {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 18px;
+      display: flex; gap: 14px; align-items: flex-start;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .check-item:hover { border-color: #2a3548; background: var(--surf2); }
+    .check-item.checked { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.04); }
+    .check-item.checked .check-box { background: var(--green); border-color: var(--green); }
+    .check-item.checked .check-box::after { opacity: 1; }
+    .check-box {
+      width: 20px; height: 20px; border-radius: 6px;
+      border: 2px solid var(--border); flex-shrink: 0;
+      margin-top: 1px; position: relative; transition: all 0.15s;
+    }
+    .check-box::after {
+      content: '✓'; position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: #0b0e14; opacity: 0; transition: opacity 0.15s;
+    }
+    .check-content { flex: 1; }
+    .check-q { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .check-hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .check-tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-left: 8px; vertical-align: middle;
+    }
+    .tag-must    { background: rgba(248,113,113,0.15); color: var(--red); }
+    .tag-imp     { background: rgba(251,191,36,0.15);  color: var(--yellow); }
+    .tag-nice    { background: rgba(96,165,250,0.15);  color: var(--blue); }
+
+    /* progress */
+    .progress-wrap { margin-top: 28px; }
+    .progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .progress-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width 0.4s ease; }
+
+    /* verdict */
+    #verdict { display: none; margin-top: 24px; }
+    .verdict-card {
+      border-radius: 12px; padding: 20px 24px;
+      border: 1px solid;
+    }
+    .verdict-card.go     { background: rgba(74,222,128,0.06);  border-color: rgba(74,222,128,0.2); }
+    .verdict-card.caution{ background: rgba(251,191,36,0.06);  border-color: rgba(251,191,36,0.2); }
+    .verdict-card.stop   { background: rgba(248,113,113,0.06); border-color: rgba(248,113,113,0.2); }
+    .verdict-icon { font-size: 28px; margin-bottom: 8px; }
+    .verdict-title { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 6px; }
+    .verdict-text  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* notes */
+    .notes-wrap { margin-top: 24px; }
+    textarea {
+      width: 100%; background: var(--surf); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      resize: vertical; min-height: 100px; outline: none;
+      transition: border-color 0.2s; line-height: 1.6;
+    }
+    textarea:focus { border-color: var(--gold); }
+    textarea::placeholder { color: var(--muted); }
+
+    .save-btn {
+      margin-top: 10px;
+      background: var(--surf2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 10px 20px;
+      font-size: 13px; cursor: pointer; transition: border-color 0.15s;
+    }
+    .save-btn:hover { border-color: var(--gold); }
+    .saved-msg { font-size: 12px; color: var(--green); margin-left: 10px; opacity: 0; transition: opacity 0.3s; }
+
+    #empty-state { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+    #empty-state .big { font-size: 40px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('checklist') }}" class="active">Checklist</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-title">📋 Research Checklist</div>
+  <p class="page-sub">Before acting on any pick — answer these questions honestly. High score ≠ guaranteed return.</p>
+
+  <div class="ticker-input-row">
+    <input type="text" id="ticker-input" placeholder="Enter ticker (e.g. MA)" maxlength="5">
+    <button onclick="loadTicker()">Load Stock →</button>
+  </div>
+
+  <div id="empty-state">
+    <div class="big">🔍</div>
+    Enter a ticker above to start your due diligence checklist
+  </div>
+
+  <div id="summary"></div>
+
+  <div id="checklist-wrap" style="display:none;">
+
+    <div class="section-title">🔴 Must Answer — Business Understanding</div>
+    <div class="checklist" id="section-must">
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Do I understand how this company makes money? <span class="check-tag tag-must">Must</span></div>
+          <div class="check-hint">Can you explain their business model in one sentence? If not, don't invest — Warren Buffett's rule.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">What are the 2-3 biggest risks to this business? <span class="check-tag tag-must">Must</span></div>
+          <div class="check-hint">Regulation changes, competition, economic sensitivity, debt levels. If you can't name them, you haven't researched enough.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Can I hold this for at least 3-5 years without panic selling? <span class="check-tag tag-must">Must</span></div>
+          <div class="check-hint">Most stocks drop 20-40% at some point. If you'd sell at a 30% loss, you're not ready to own it.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Is this money I won't need for 3+ years? <span class="check-tag tag-must">Must</span></div>
+          <div class="check-hint">Never invest money you might need for rent, emergencies, or near-term expenses.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">🟡 Important — Valuation & Financials</div>
+    <div class="checklist" id="section-imp">
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Is the stock reasonably valued vs its earnings growth? <span class="check-tag tag-imp">Important</span></div>
+          <div class="check-hint">Check the PEG ratio (P/E divided by growth rate). Under 1.5 = reasonable. Over 3 = expensive. A high score doesn't mean cheap.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Is revenue and earnings growing year over year? <span class="check-tag tag-imp">Important</span></div>
+          <div class="check-hint">Check the last 3 years of financials on Yahoo Finance → Financials tab. Consistent growth = healthy business.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Is the debt level manageable? <span class="check-tag tag-imp">Important</span></div>
+          <div class="check-hint">Debt-to-equity under 1.0 is generally safe. High debt + rising interest rates = danger. Check Yahoo Finance → Balance Sheet.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Does the company generate positive free cash flow? <span class="check-tag tag-imp">Important</span></div>
+          <div class="check-hint">Free cash flow = real money left after expenses. Companies burning cash are risky. Check Yahoo Finance → Cash Flow.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">How does it compare to competitors in the same sector? <span class="check-tag tag-imp">Important</span></div>
+          <div class="check-hint">Is it the market leader or a weaker player? Morningstar's moat rating helps here. Leaders tend to stay leaders.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">🔵 Nice to Know — Conviction Boosters</div>
+    <div class="checklist" id="section-nice">
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Has this stock appeared in the top 10 for 3+ consecutive days? <span class="check-tag tag-nice">Nice</span></div>
+          <div class="check-hint">Check the Streak column in the dashboard. Persistent signals are more reliable than one-day spikes.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Are insiders (CEO, CFO) buying shares recently? <span class="check-tag tag-nice">Nice</span></div>
+          <div class="check-hint">Check openinsider.com for the ticker. Cluster buying = management believes in the stock. Selling is less meaningful.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Is the stock beating the S&P 500 over the last 3-6 months? <span class="check-tag tag-nice">Nice</span></div>
+          <div class="check-hint">Relative strength matters — strong stocks tend to stay strong. Check the "Beats S&P" column in the dashboard.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Does the overall market environment support this investment? <span class="check-tag tag-nice">Nice</span></div>
+          <div class="check-hint">Check the market bar: VIX above 30 = high fear/volatility. 10yr yield above 5% = headwind for growth stocks. Context matters.</div>
+        </div>
+      </div>
+      <div class="check-item" onclick="toggle(this)">
+        <div class="check-box"></div>
+        <div class="check-content">
+          <div class="check-q">Am I diversified — not putting too much in one stock or sector? <span class="check-tag tag-nice">Nice</span></div>
+          <div class="check-hint">No single stock should be more than 5-10% of your portfolio. Check sector concentration warning in the dashboard.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-row">
+        <span id="progress-label">0 of 13 questions answered</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Verdict -->
+    <div id="verdict"></div>
+
+    <!-- Notes -->
+    <div class="notes-wrap">
+      <div class="section-title">📝 Your Research Notes</div>
+      <textarea id="notes" placeholder="Write your notes here — why you like this stock, what concerns you, your price target, etc. Saved locally in your browser."></textarea>
+      <div style="display:flex;align-items:center;">
+        <button class="save-btn" onclick="saveNotes()">Save Notes</button>
+        <span class="saved-msg" id="saved-msg">✓ Saved</span>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const TOTAL = 13;
+let currentTicker = '';
+
+// Load ticker data from API
+async function loadTicker() {
+  const input  = document.getElementById('ticker-input');
+  const ticker = input.value.trim().toUpperCase();
+  if (!ticker) return;
+  currentTicker = ticker;
+
+  try {
+    const res  = await fetch(`/api/ticker/${ticker}`);
+    const data = await res.json();
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('checklist-wrap').style.display = 'block';
+
+    if (data.length > 0) {
+      const latest = data[0];
+      renderSummary(ticker, latest, data);
+    } else {
+      renderSummary(ticker, null, []);
+    }
+
+    // Load saved state
+    loadChecks(ticker);
+    loadNotes(ticker);
+    updateProgress();
+
+  } catch(e) {
+    renderSummary(ticker, null, []);
+    document.getElementById('checklist-wrap').style.display = 'block';
+    document.getElementById('empty-state').style.display = 'none';
+  }
+}
+
+function renderSummary(ticker, data, history) {
+  const wrap = document.getElementById('summary');
+  wrap.style.display = 'block';
+
+  const score   = data ? data.score : '–';
+  const upside  = data ? (data.upside_pct ? data.upside_pct.toFixed(1) + '%' : '–') : '–';
+  const price   = data ? ('$' + data.price) : '–';
+  const streak  = data ? (data.streak || 0) : 0;
+  const appearances = history.length;
+
+  wrap.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-score">${typeof score === 'number' ? Math.round(score) : score}</div>
+      <div class="summary-info">
+        <div class="summary-ticker">${ticker}</div>
+        <div class="summary-label">Consensus Score · ${price} · ${upside} upside · ${streak > 0 ? '🔥' + streak + 'd streak' : 'No streak'} · ${appearances} scan appearances</div>
+        <div class="summary-signals">
+          <span class="sig-pill ${score >= 70 ? 'sig-on' : 'sig-off'}">High Conviction</span>
+          <span class="sig-pill ${streak >= 3 ? 'sig-on' : 'sig-off'}">3+ Day Streak</span>
+          <span class="sig-pill ${appearances >= 5 ? 'sig-on' : 'sig-off'}">Consistent Picker</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggle(el) {
+  el.classList.toggle('checked');
+  saveChecks(currentTicker);
+  updateProgress();
+}
+
+function updateProgress() {
+  const all     = document.querySelectorAll('.check-item');
+  const checked = document.querySelectorAll('.check-item.checked');
+  const pct     = Math.round(checked.length / TOTAL * 100);
+
+  document.getElementById('progress-label').textContent = `${checked.length} of ${TOTAL} questions answered`;
+  document.getElementById('progress-pct').textContent   = pct + '%';
+  document.getElementById('progress-fill').style.width  = pct + '%';
+
+  // Must items
+  const mustItems  = document.querySelectorAll('#section-must .check-item');
+  const mustDone   = document.querySelectorAll('#section-must .check-item.checked');
+  const impItems   = document.querySelectorAll('#section-imp .check-item');
+  const impDone    = document.querySelectorAll('#section-imp .check-item.checked');
+
+  const verdict = document.getElementById('verdict');
+
+  if (pct >= 85 && mustDone.length === mustItems.length) {
+    verdict.style.display = 'block';
+    verdict.innerHTML = `
+      <div class="verdict-card go">
+        <div class="verdict-icon">✅</div>
+        <div class="verdict-title">Ready to Research Further</div>
+        <div class="verdict-text">You've done solid due diligence. If the conviction score is high and the streak is 3+ days, this may be worth a small starter position. Start small — you can always add more as your conviction grows. Remember: never more than 5-10% of your portfolio in one stock.</div>
+      </div>`;
+  } else if (pct >= 50 && mustDone.length >= 3) {
+    verdict.style.display = 'block';
+    verdict.innerHTML = `
+      <div class="verdict-card caution">
+        <div class="verdict-icon">⚠️</div>
+        <div class="verdict-title">More Research Needed</div>
+        <div class="verdict-text">You're making progress but there are still unanswered questions. Focus on the Must items first — especially understanding the business and your ability to hold long term. Don't rush into a position you're not confident in.</div>
+      </div>`;
+  } else if (pct > 0) {
+    verdict.style.display = 'block';
+    verdict.innerHTML = `
+      <div class="verdict-card stop">
+        <div class="verdict-icon">🛑</div>
+        <div class="verdict-title">Not Ready Yet</div>
+        <div class="verdict-text">You have too many unanswered questions. A high score from the analyzer is a starting point for research — not a buy signal on its own. Take more time to understand the business before committing any money.</div>
+      </div>`;
+  } else {
+    verdict.style.display = 'none';
+  }
+}
+
+// Persist checks in localStorage
+function saveChecks(ticker) {
+  if (!ticker) return;
+  const items   = document.querySelectorAll('.check-item');
+  const state   = Array.from(items).map(el => el.classList.contains('checked'));
+  localStorage.setItem(`checks_${ticker}`, JSON.stringify(state));
+}
+
+function loadChecks(ticker) {
+  const saved = localStorage.getItem(`checks_${ticker}`);
+  if (!saved) return;
+  const state = JSON.parse(saved);
+  const items = document.querySelectorAll('.check-item');
+  items.forEach((el, i) => {
+    if (state[i]) el.classList.add('checked');
+    else el.classList.remove('checked');
+  });
+}
+
+function saveNotes() {
+  if (!currentTicker) return;
+  const notes = document.getElementById('notes').value;
+  localStorage.setItem(`notes_${currentTicker}`, notes);
+  const msg = document.getElementById('saved-msg');
+  msg.style.opacity = 1;
+  setTimeout(() => msg.style.opacity = 0, 2000);
+}
+
+function loadNotes(ticker) {
+  const saved = localStorage.getItem(`notes_${ticker}`);
+  document.getElementById('notes').value = saved || '';
+}
+
+// Allow pressing Enter in ticker input
+document.getElementById('ticker-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadTicker();
+});
+</script>
+</body>
+</html>
