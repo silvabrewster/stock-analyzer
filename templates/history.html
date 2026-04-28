@@ -62,6 +62,7 @@
   <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}" class="active">History</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
 </nav>
@@ -79,9 +80,9 @@
           </tr>
         </thead>
         <tbody>
-          {% for i, s in enumerate(top_all_time) %}
+          {% for s in top_all_time %}
           <tr>
-            <td><span class="rank-num">{{ i+1 }}</span></td>
+            <td><span class="rank-num">{{ loop.index }}</span></td>
             <td><span class="tk">{{ s.ticker }}</span></td>
             <td>
               <div class="bar-wrap">
