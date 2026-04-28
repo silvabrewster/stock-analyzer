@@ -264,6 +264,11 @@ def api_ticker(ticker):
 
 # ── dev seed (optional) ───────────────────────────────────────────────────────
 
+@app.route("/checklist")
+@login_required
+def checklist():
+    return render_template("checklist.html")
+
 @app.route("/seed")
 @login_required
 def seed():
