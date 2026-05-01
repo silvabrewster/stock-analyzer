@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convergence — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0b0e14;
+      --surf:    #111620;
+      --surf2:   #161c2a;
+      --border:  #1e2535;
+      --gold:    #c9a84c;
+      --gold2:   #f0d080;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --green:   #4ade80;
+      --red:     #f87171;
+      --yellow:  #fbbf24;
+      --blue:    #60a5fa;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 18px; display: flex; align-items: center; gap: 10px;
+    }
+    .nav-logo span { font-size: 20px; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none;
+      padding: 6px 14px; border-radius: 6px;
+      font-size: 13px; font-weight: 500;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text); background: var(--surf);
+    }
+    .nav-links a.logout { color: var(--red); }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--green); font-family: 'DM Mono', monospace;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    main { position: relative; z-index: 1; padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* MARKET BAR */
+    .market-bar {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .mkt-card {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 20px;
+      flex: 1; min-width: 140px;
+    }
+    .mkt-label { font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+    .mkt-value { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; }
+    .mkt-chg { font-size: 12px; margin-top: 3px; }
+    .up { color: var(--green); } .down { color: var(--red); }
+
+    /* HEADER ROW */
+    .header-row {
+      display: flex; align-items: flex-end;
+      justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; font-weight: 400; }
+    .scan-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* STREAKS */
+    .streaks-row {
+      display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .streak-chip {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 14px;
+      display: flex; align-items: center; gap: 8px; font-size: 13px;
+    }
+    .streak-chip .tk { font-weight: 600; font-family: 'DM Mono', monospace; color: var(--gold); }
+    .streak-chip .st { color: var(--muted); font-size: 12px; }
+
+    /* TABLE */
+    .table-wrap {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr {
+      background: var(--surf2);
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      padding: 12px 14px; text-align: left;
+      font-size: 10px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf2); }
+    td { padding: 13px 14px; white-space: nowrap; }
+
+    .ticker-cell {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500; font-size: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .new-badge {
+      background: rgba(96,165,250,0.15); color: var(--blue);
+      font-size: 9px; padding: 2px 6px; border-radius: 4px;
+      font-weight: 600; letter-spacing: 0.05em;
+    }
+    .vol-badge {
+      background: rgba(251,191,36,0.15); color: var(--yellow);
+      font-size: 9px; padding: 2px 6px; border-radius: 4px;
+    }
+
+    .score-pill {
+      display: inline-block;
+      padding: 3px 10px; border-radius: 20px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px; font-weight: 500; min-width: 42px; text-align: center;
+    }
+    .score-high   { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+    .score-mid    { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
+    .score-low    { background: rgba(107,114,128,0.1); color: var(--muted); border: 1px solid rgba(107,114,128,0.2); }
+
+    .check  { color: var(--green); font-size: 14px; }
+    .dash   { color: var(--border); }
+
+    .upside-up   { color: var(--green); font-weight: 500; }
+    .upside-mid  { color: var(--yellow); font-weight: 500; }
+    .upside-down { color: var(--red); font-weight: 500; }
+
+    .streak-val {
+      font-family: 'DM Mono', monospace; font-size: 12px;
+    }
+    .streak-fire { color: var(--yellow); }
+
+    .sector-tag {
+      font-size: 11px; color: var(--muted);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 7px;
+    }
+
+    .w52-bar {
+      display: flex; align-items: center; gap: 6px; min-width: 100px;
+    }
+    .w52-track {
+      flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .w52-fill { height: 100%; border-radius: 2px; background: var(--gold); }
+    .w52-pct  { font-size: 11px; color: var(--muted); width: 32px; text-align: right; }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      main { padding: 16px; }
+      nav  { padding: 0 16px; }
+      th:nth-child(n+9), td:nth-child(n+9) { display: none; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo"><span>📈</span> Convergence</div>
+  <div class="nav-links">
+    <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+    <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- Market bar -->
+  {% if market %}
+  <div class="market-bar">
+    <div class="mkt-card">
+      <div class="mkt-label">S&P 500</div>
+      <div class="mkt-value">{{ market.sp500 or '–' }}</div>
+      {% if market.sp500_chg %}
+      <div class="mkt-chg {{ 'up' if market.sp500_chg >= 0 else 'down' }}">
+        {{ '▲' if market.sp500_chg >= 0 else '▼' }}{{ '%0.2f'|format(market.sp500_chg|abs) }}%
+      </div>
+      {% endif %}
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">VIX Fear Index</div>
+      <div class="mkt-value">{{ market.vix or '–' }}</div>
+      <div class="mkt-chg {{ 'red' if (market.vix or 0) > 25 else 'up' }}">
+        {{ 'Elevated' if (market.vix or 0) > 25 else ('Normal' if (market.vix or 0) > 15 else 'Low') }}
+      </div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">10yr Treasury</div>
+      <div class="mkt-value">{{ market.tny or '–' }}%</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">Stocks Scanned</div>
+      <div class="mkt-value">{{ stocks|length }}</div>
+      <div class="mkt-chg" style="color:var(--muted);">Top 20 shown</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Header -->
+  <div class="header-row">
+    <div>
+      <div class="page-title">Today's Top Picks</div>
+      <div class="scan-date">Last scan: {{ latest_date }} · 7 sources · 9 accuracy boosters</div>
+    </div>
+  </div>
+
+  <!-- Streak leaders -->
+  {% if streaks %}
+  <div class="streaks-row">
+    <div style="font-size:12px;color:var(--muted);align-self:center;margin-right:4px;">🔥 Streak leaders:</div>
+    {% for s in streaks %}
+    <div class="streak-chip">
+      <span class="tk">{{ s.ticker }}</span>
+      <span class="st">{{ s.max_streak }}d streak · avg {{ '%0.0f'|format(s.score) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Score</th>
+          <th>Sources</th>
+          <th>Streak</th>
+          <th>Yahoo</th>
+          <th>Zacks</th>
+          <th>MS</th>
+          <th>Insider</th>
+          <th>EPS Rev</th>
+          <th>Beats S&P</th>
+          <th>Price</th>
+          <th>Upside</th>
+          <th>Beta</th>
+          <th>Div</th>
+          <th>52w Pos</th>
+          <th>Sector</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stocks %}
+        {% set score = s.score or 0 %}
+        <tr>
+          <td>
+            <div class="ticker-cell">
+              {{ s.ticker }}
+              {% if s.is_new %}<span class="new-badge">NEW</span>{% endif %}
+              {% if s.vol_spike == '1' %}<span class="vol-badge">VOL🔥</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}">
+              {{ '%0.0f'|format(score) }}
+            </span>
+          </td>
+          <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;">{{ s.sources or '–' }}</td>
+          <td>
+            {% if s.streak and s.streak >= 3 %}
+              <span class="streak-val streak-fire">🔥{{ s.streak }}d</span>
+            {% elif s.streak and s.streak > 0 %}
+              <span class="streak-val" style="color:var(--muted);">{{ s.streak }}d</span>
+            {% else %}
+              <span class="dash">–</span>
+            {% endif %}
+          </td>
+          <td>{% if s.yahoo_sb == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.zacks == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.morningstar == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.insider == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.eps_rev == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.beats_sp == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td style="font-family:'DM Mono',monospace;">${{ s.price or '–' }}</td>
+          <td>
+            {% if s.upside_pct %}
+              <span class="{{ 'upside-up' if s.upside_pct >= 15 else ('upside-mid' if s.upside_pct >= 5 else 'upside-down') }}">
+                {{ '%0.1f'|format(s.upside_pct) }}%
+              </span>
+            {% else %}<span class="dash">–</span>{% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:12px;">{{ s.beta or '–' }}</td>
+          <td style="color:var(--muted);font-size:12px;">{{ ('%0.1f'|format(s.div_yield) + '%') if s.div_yield else '–' }}</td>
+          <td>
+            {% if s.week52_pos %}
+            <div class="w52-bar">
+              <div class="w52-track"><div class="w52-fill" style="width:{{ s.week52_pos }}%;"></div></div>
+              <div class="w52-pct">{{ '%0.0f'|format(s.week52_pos) }}%</div>
+            </div>
+            {% else %}<span class="dash">–</span>{% endif %}
+          </td>
+          <td><span class="sector-tag">{{ s.sector or '–' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size:11px;color:var(--muted);margin-top:16px;line-height:1.8;">
+    Score: Yahoo(22) + Zacks(22) + Morningstar(18) + Insider(12) + Vanguard(10) + EPS Rev(8) + RS(8) · Max 100
+    &nbsp;·&nbsp; 52w Position: 0% = yearly low, 100% = yearly high
+    &nbsp;·&nbsp; <em>Not financial advice.</em>
+  </p>
+
+</main>
+</body>
+</html>
