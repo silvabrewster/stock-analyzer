@@ -3,104 +3,321 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scanning...</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-  <meta http-equiv="refresh" content="180;url=/momentum">
+  <title>Convergence — Momentum Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --bg: #0b0e14; --surf: #111620; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+      --blue: #60a5fa; --purple: #a78bfa; --orange: #fb923c;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
     body::before {
       content: ''; position: fixed; inset: 0;
-      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
       background-size: 40px 40px; pointer-events: none;
     }
-    .card {
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 8px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+
+    main { position: relative; z-index: 1; padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub   { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+
+    /* warning banner */
+    .risk-banner {
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: 10px; padding: 14px 18px;
+      margin-bottom: 24px; font-size: 13px;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .risk-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .risk-text { color: #fca5a5; line-height: 1.6; }
+    .risk-text strong { color: var(--red); }
+
+    /* filter bar */
+    .filter-bar {
+      display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .filter-btn {
       background: var(--surf); border: 1px solid var(--border);
-      border-radius: 16px; padding: 52px 48px; text-align: center;
-      max-width: 440px; width: 100%;
+      color: var(--muted); border-radius: 8px; padding: 8px 16px;
+      font-size: 13px; cursor: pointer; transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
     }
-    .spinner {
-      width: 56px; height: 56px; border-radius: 50%;
-      border: 3px solid var(--border);
-      border-top-color: var(--gold);
-      animation: spin 1s linear infinite;
-      margin: 0 auto 24px;
+    .filter-btn:hover, .filter-btn.active {
+      border-color: var(--gold); color: var(--gold);
+      background: rgba(201,168,76,0.06);
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    h2 { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 12px; }
-    p  { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 8px; }
-    .tickers {
-      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
-      margin: 24px 0; font-family: 'DM Mono', monospace; font-size: 11px;
+
+    /* stat cards */
+    .stat-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-card {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 120px;
     }
-    .tk {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 4px; padding: 3px 8px; color: var(--muted);
-      animation: flicker 3s infinite;
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; }
+
+    /* table */
+    .table-wrap { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
+    th { padding: 11px 12px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf2); }
+    td { padding: 12px 12px; white-space: nowrap; }
+
+    .ticker-cell { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 14px; color: var(--gold); }
+    .name-cell   { color: var(--muted); font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+    .tier-pill {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px;
+      font-weight: 600; letter-spacing: 0.04em;
     }
-    .tk:nth-child(2n) { animation-delay: 0.5s; }
-    .tk:nth-child(3n) { animation-delay: 1s; }
-    @keyframes flicker {
-      0%,100% { color: var(--muted); border-color: var(--border); }
-      50% { color: var(--gold); border-color: var(--gold); }
+    .tier-micro  { background: rgba(248,113,113,0.12); color: var(--red); }
+    .tier-penny  { background: rgba(251,191,36,0.12);  color: var(--yellow); }
+    .tier-small  { background: rgba(96,165,250,0.12);  color: var(--blue); }
+
+    .score-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+      min-width: 38px; text-align: center;
     }
-    .back-btn {
-      display: inline-block; margin-top: 20px;
-      color: var(--muted); font-size: 13px; text-decoration: none;
-      border: 1px solid var(--border); border-radius: 8px; padding: 8px 18px;
-      transition: color 0.15s, border-color 0.15s;
+    .score-fire   { background: rgba(251,191,36,0.12); color: var(--yellow); border: 1px solid rgba(251,191,36,0.25); }
+    .score-mid    { background: rgba(96,165,250,0.10); color: var(--blue);   border: 1px solid rgba(96,165,250,0.2); }
+    .score-low    { background: rgba(107,114,128,0.08); color: var(--muted); border: 1px solid var(--border); }
+
+    .check  { color: var(--green); }
+    .dash   { color: var(--border); }
+    .vol-high { color: var(--orange); font-weight: 600; font-family: 'DM Mono', monospace; }
+
+    .signals-bar { display: flex; gap: 3px; }
+    .sig-dot {
+      width: 8px; height: 8px; border-radius: 50%;
     }
-    .back-btn:hover { color: var(--text); border-color: var(--gold); }
-    .progress-bar {
-      height: 3px; background: var(--border); border-radius: 2px;
-      overflow: hidden; margin-top: 24px;
+    .sig-on  { background: var(--green); }
+    .sig-off { background: var(--border); }
+
+    /* scan button */
+    .scan-btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #0b0e14; border: none; border-radius: 8px;
+      padding: 10px 22px; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: opacity 0.2s;
     }
-    .progress-fill {
-      height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2));
-      border-radius: 2px; animation: progress 180s linear forwards;
+    .scan-btn:hover { opacity: 0.85; }
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .last-scan { font-size: 12px; color: var(--muted); }
+
+    .empty-state { text-align: center; padding: 64px 32px; color: var(--muted); }
+    .empty-state .big { font-size: 48px; margin-bottom: 16px; }
+    .empty-state p { font-size: 14px; line-height: 1.6; max-width: 400px; margin: 0 auto; }
+
+    @media (max-width: 768px) {
+      main { padding: 16px; }
+      nav  { padding: 0 16px; }
+      th:nth-child(n+8), td:nth-child(n+8) { display: none; }
     }
-    @keyframes progress { from { width: 0%; } to { width: 100%; } }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="spinner"></div>
-    <h2>Scanning Markets...</h2>
-    <p>Running momentum scan across ~80 penny stocks and small caps.</p>
-    <p>This takes about 3-4 minutes. The page will refresh automatically.</p>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}" class="active">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
 
-    <div class="tickers">
-      <span class="tk">SOFI</span><span class="tk">HOOD</span><span class="tk">IONQ</span>
-      <span class="tk">SNDL</span><span class="tk">WKHS</span><span class="tk">JOBY</span>
-      <span class="tk">NIO</span><span class="tk">LCID</span><span class="tk">AFRM</span>
-      <span class="tk">UPST</span><span class="tk">DKNG</span><span class="tk">SPCE</span>
-      <span class="tk">SKLZ</span><span class="tk">HIMS</span><span class="tk">BLNK</span>
-      <span class="tk">CHPT</span><span class="tk">EVGO</span><span class="tk">MVIS</span>
+<main>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+    <div>
+      <div class="page-title">⚡ Momentum Scanner</div>
+      <p class="page-sub">Penny stocks & small caps ranked by momentum signals — not analyst consensus</p>
+      {% if last_scan %}
+      <div class="last-scan">Last scan: {{ last_scan }}</div>
+      {% endif %}
     </div>
-
-    <div class="progress-bar">
-      <div class="progress-fill"></div>
-    </div>
-
-    <a href="/momentum" class="back-btn">← Check results now</a>
+    <form method="POST" action="{{ url_for('momentum_scan') }}">
+      <button type="submit" class="scan-btn" id="scan-btn">
+        ⚡ Run New Scan
+      </button>
+    </form>
   </div>
 
-  <script>
-    // Auto-check every 30 seconds if results are ready
-    let checks = 0;
-    const interval = setInterval(async () => {
-      checks++;
-      if (checks > 8) { clearInterval(interval); return; }
-      try {
-        const res  = await fetch('/momentum');
-        const text = await res.text();
-        // If results are in the page, redirect
-        if (text.includes('penny-table') && text.includes('<tbody>') && !text.includes('empty-state')) {
-          window.location.href = '/momentum';
-        }
-      } catch(e) {}
-    }, 30000);
-  </script>
+  <!-- Risk warning -->
+  <div class="risk-banner">
+    <div class="risk-icon">⚠️</div>
+    <div class="risk-text">
+      <strong>High Risk Warning:</strong> Penny and small cap stocks are extremely volatile and speculative.
+      Most penny stocks eventually go to zero. Many are subject to pump-and-dump schemes.
+      This scanner identifies momentum signals only — <strong>never invest money you cannot afford to lose entirely.</strong>
+      Always do extensive research before touching any stock under $5. This is not financial advice.
+    </div>
+  </div>
+
+  {% if stocks %}
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Stocks Scanned</div>
+      <div class="stat-value">{{ stocks|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">High Momentum</div>
+      <div class="stat-value" style="color:var(--yellow);">{{ stocks|selectattr('score', 'ge', 50)|list|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">With Volume Spike</div>
+      <div class="stat-value" style="color:var(--orange);">{{ stocks|selectattr('vol_spike', 'equalto', '✓')|list|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Breakout Stocks</div>
+      <div class="stat-value" style="color:var(--green);">{{ stocks|selectattr('breakout', 'equalto', '✓')|list|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Squeeze Candidates</div>
+      <div class="stat-value" style="color:var(--purple);">{{ stocks|selectattr('short_squeeze', 'equalto', '✓')|list|length }}</div>
+    </div>
+  </div>
+
+  <!-- Filter buttons -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterTier('all', this)">All</button>
+    <button class="filter-btn" onclick="filterTier('Micro', this)">🔴 Micro (&lt;$2)</button>
+    <button class="filter-btn" onclick="filterTier('Penny', this)">🟡 Penny ($2-5)</button>
+    <button class="filter-btn" onclick="filterTier('Small', this)">🔵 Small ($5-20)</button>
+    <button class="filter-btn" onclick="filterSignal('vol', this)">⚡ Volume Spike</button>
+    <button class="filter-btn" onclick="filterSignal('break', this)">📈 Breakout</button>
+    <button class="filter-btn" onclick="filterSignal('squeeze', this)">🎯 Squeeze</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="penny-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th>Tier</th>
+          <th>Score</th>
+          <th>Signals</th>
+          <th>Price</th>
+          <th>Mkt Cap</th>
+          <th>Vol Spike</th>
+          <th>Vol Ratio</th>
+          <th>Breakout</th>
+          <th>52w Range</th>
+          <th>Beats Mkt</th>
+          <th>1mo Return</th>
+          <th>Insider</th>
+          <th>Squeeze</th>
+          <th>Short Float</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stocks %}
+        {% set score = s.score or 0 %}
+        <tr data-tier="{{ s.tier }}" data-vol="{{ s.vol_spike }}" data-break="{{ s.breakout }}" data-squeeze="{{ s.short_squeeze }}">
+          <td style="color:var(--muted);font-size:11px;">{{ loop.index }}</td>
+          <td class="ticker-cell">{{ s.ticker }}</td>
+          <td class="name-cell">{{ s.name }}</td>
+          <td>
+            <span class="tier-pill {{ 'tier-micro' if 'Micro' in s.tier else ('tier-penny' if 'Penny' in s.tier else 'tier-small') }}">
+              {{ s.tier }}
+            </span>
+          </td>
+          <td>
+            <span class="score-pill {{ 'score-fire' if score >= 50 else ('score-mid' if score >= 25 else 'score-low') }}">
+              {{ score|int }}
+            </span>
+          </td>
+          <td>
+            <div class="signals-bar">
+              <div class="sig-dot {{ 'sig-on' if s.vol_spike == '✓' else 'sig-off' }}" title="Volume Spike"></div>
+              <div class="sig-dot {{ 'sig-on' if s.breakout == '✓' else 'sig-off' }}" title="Breakout"></div>
+              <div class="sig-dot {{ 'sig-on' if s.beats_mkt == '✓' else 'sig-off' }}" title="Beats Market"></div>
+              <div class="sig-dot {{ 'sig-on' if s.insider_buy == '✓' else 'sig-off' }}" title="Insider Buy"></div>
+              <div class="sig-dot {{ 'sig-on' if s.short_squeeze == '✓' else 'sig-off' }}" title="Short Squeeze"></div>
+            </div>
+          </td>
+          <td style="font-family:'DM Mono',monospace;">${{ s.price }}</td>
+          <td style="color:var(--muted);font-size:11px;">{{ s.mkt_cap }}</td>
+          <td>{% if s.vol_spike == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td class="{{ 'vol-high' if s.vol_ratio and s.vol_ratio != '–' and s.vol_ratio|replace('x','')|float >= 3 else '' }}">{{ s.vol_ratio }}</td>
+          <td>{% if s.breakout == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td style="color:var(--muted);font-size:11px;">{{ s.week52_range }}</td>
+          <td>{% if s.beats_mkt == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td style="color:{{ 'var(--green)' if s.mo_return and s.mo_return != '–' and s.mo_return|replace('%','')|float > 0 else 'var(--red)' }};">{{ s.mo_return }}</td>
+          <td>{% if s.insider_buy == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td>{% if s.short_squeeze == '✓' %}<span style="color:var(--purple);">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
+          <td style="color:var(--muted);font-size:11px;">{{ s.short_float }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size:11px;color:var(--muted);margin-top:16px;line-height:1.8;">
+    Score: Volume Spike(30) + Price Breakout(25) + Relative Strength(20) + Insider Buy(15) + Short Squeeze(10)
+    &nbsp;·&nbsp; Signals bar: 🟢 = active, ⚫ = inactive
+    &nbsp;·&nbsp; <em>Penny stocks are extremely high risk. Not financial advice.</em>
+  </p>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="big">⚡</div>
+    <p>No scan results yet. Click <strong>Run New Scan</strong> to scan penny stocks and small caps for momentum signals.</p>
+    <p style="margin-top:12px;font-size:12px;">Takes about 3-4 minutes to scan ~80 tickers.</p>
+  </div>
+  {% endif %}
+
+</main>
+
+<script>
+function filterTier(tier, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#penny-table tbody tr').forEach(row => {
+    if (tier === 'all') { row.style.display = ''; return; }
+    row.style.display = row.dataset.tier.includes(tier) ? '' : 'none';
+  });
+}
+function filterSignal(sig, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#penny-table tbody tr').forEach(row => {
+    const map = { vol: 'vol', break: 'break', squeeze: 'squeeze' };
+    const val = row.dataset[map[sig]];
+    row.style.display = val === '✓' ? '' : 'none';
+  });
+}
+</script>
 </body>
 </html>
