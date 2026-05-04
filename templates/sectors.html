@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convergence — Sector Heatmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+    main { position: relative; z-index: 1; padding: 32px; max-width: 1200px; margin: 0 auto; }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    /* Heatmap grid */
+    .heatmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 32px; }
+    .sector-tile {
+      border-radius: 12px; padding: 20px 18px;
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .sector-tile:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .sector-name { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .sector-score { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; margin-bottom: 4px; }
+    .sector-count { font-size: 11px; opacity: 0.7; }
+    .sector-bar { position: absolute; bottom: 0; left: 0; height: 3px; border-radius: 0 0 12px 12px; }
+    .sector-tickers { font-size: 10px; opacity: 0.6; margin-top: 6px; font-family: 'DM Mono', monospace; }
+
+    /* Trend table */
+    .card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
+    .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
+    th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf2); }
+    td { padding: 11px 14px; }
+    .trend-up   { color: var(--green); font-weight: 600; }
+    .trend-down { color: var(--red);   font-weight: 600; }
+    .trend-flat { color: var(--muted); }
+    .bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .bar-track { width: 80px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 3px; }
+
+    @media (max-width: 600px) { main { padding: 16px; } nav { padding: 0 16px; } .heatmap { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('sectors') }}" class="active">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-title">🗺️ Sector Rotation Heatmap</div>
+  <p class="page-sub">Which sectors are scoring highest in today's scan — follow the institutional money.</p>
+
+  {% if sectors %}
+  <div class="heatmap">
+    {% for s in sectors %}
+    {% set intensity = (s.avg_score / 100) %}
+    {% set r = (18 + intensity * 40)|int %}
+    {% set g = (22 + intensity * 20)|int %}
+    {% set b = (40 + intensity * 10)|int %}
+    {% set border_alpha = (0.1 + intensity * 0.4) %}
+    <div class="sector-tile" style="background: rgba({{ r }},{{ g }},{{ b }},0.9); border: 1px solid rgba(201,168,76,{{ border_alpha }});">
+      <div class="sector-name">{{ s.sector }}</div>
+      <div class="sector-score" style="color: {{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }}">{{ s.avg_score|int }}</div>
+      <div class="sector-count">{{ s.count }} stock{{ 's' if s.count != 1 else '' }} in top picks</div>
+      <div class="sector-tickers">{{ s.tickers }}</div>
+      <div class="sector-bar" style="width: {{ s.avg_score }}%; background: {{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }};"></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Sector Rankings</div>
+    <table>
+      <thead>
+        <tr><th>Rank</th><th>Sector</th><th>Avg Score</th><th>Stocks</th><th>Top Pick</th><th>Concentration</th></tr>
+      </thead>
+      <tbody>
+        {% for s in sectors %}
+        <tr>
+          <td style="color:var(--muted);font-family:'DM Mono',monospace;">{{ loop.index }}</td>
+          <td style="font-weight:500;">{{ s.sector }}</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-track">
+                <div class="bar-fill" style="width:{{ s.avg_score }}%;background:{{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }};"></div>
+              </div>
+              <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ s.avg_score|int }}</span>
+            </div>
+          </td>
+          <td style="color:var(--muted);">{{ s.count }}</td>
+          <td style="font-family:'DM Mono',monospace;color:var(--gold);">{{ s.top_ticker }}</td>
+          <td>
+            <div style="height:6px;width:{{ [s.count * 15, 100]|min }}px;background:rgba(201,168,76,0.4);border-radius:3px;"></div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:64px;color:var(--muted);">
+    <div style="font-size:48px;margin-bottom:16px;">🗺️</div>
+    <p>No sector data yet. Run a scan first from the Dashboard.</p>
+  </div>
+  {% endif %}
+</main>
+</body>
+</html>
