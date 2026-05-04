@@ -1,0 +1,43 @@
+{
+  "name": "Convergence Stock Intelligence",
+  "short_name": "Convergence",
+  "description": "Multi-source stock convergence analyzer with daily signals",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#c9a84c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["finance", "business"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "description": "View today's top stocks"
+    },
+    {
+      "name": "Analyze",
+      "url": "/analyze",
+      "description": "Analyze any stock"
+    },
+    {
+      "name": "Momentum",
+      "url": "/momentum",
+      "description": "Penny stock scanner"
+    }
+  ]
+}
