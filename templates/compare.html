@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convergence — Compare</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+      background-size: 40px 40px; pointer-events: none;
+    }
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 60px;
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+    main { position: relative; z-index: 1; padding: 32px; max-width: 1100px; margin: 0 auto; }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    /* Input row */
+    .compare-form {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px; margin-bottom: 28px;
+      display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    input[type="text"] {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: 'DM Mono', monospace;
+      font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em;
+      outline: none; transition: border-color 0.2s; width: 110px;
+    }
+    input[type="text"]:focus { border-color: var(--gold); }
+    .compare-btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #0b0e14; border: none; border-radius: 8px;
+      padding: 10px 24px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .compare-btn:hover { opacity: 0.85; }
+
+    /* Compare table */
+    .compare-table-wrap {
+      background: var(--surf); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden; margin-bottom: 20px;
+    }
+    .compare-table { width: 100%; border-collapse: collapse; }
+    .compare-table th {
+      padding: 16px 20px; text-align: center;
+      font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500;
+      color: var(--gold); background: var(--surf2);
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table th.row-label {
+      text-align: left; font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+    }
+    .compare-table td {
+      padding: 14px 20px; text-align: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .compare-table td.row-label {
+      text-align: left; font-size: 13px; color: var(--muted);
+      font-weight: 500; background: var(--surf2);
+    }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table tr:hover td { background: var(--surf2); }
+    .compare-table tr:hover td.row-label { background: var(--surf2); }
+    .winner { color: var(--green); font-weight: 600; }
+    .loser  { color: var(--red); }
+    .check  { color: var(--green); font-size: 16px; }
+    .dash   { color: var(--border); }
+    .score-big { font-family: 'DM Mono', monospace; font-size: 24px; font-weight: 500; }
+
+    .empty { text-align: center; padding: 64px; color: var(--muted); }
+    .empty .big { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('sectors') }}">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('compare') }}" class="active">Compare</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-title">⚖️ Compare Stocks</div>
+  <p class="page-sub">Side-by-side comparison of up to 3 stocks across all signals and metrics.</p>
+
+  <form class="compare-form" method="GET" action="{{ url_for('compare') }}">
+    <div class="form-group">
+      <label>Stock 1</label>
+      <input type="text" name="t1" placeholder="MA" maxlength="5" value="{{ t1 or '' }}">
+    </div>
+    <div class="form-group">
+      <label>Stock 2</label>
+      <input type="text" name="t2" placeholder="NVDA" maxlength="5" value="{{ t2 or '' }}">
+    </div>
+    <div class="form-group">
+      <label>Stock 3 (optional)</label>
+      <input type="text" name="t3" placeholder="MSFT" maxlength="5" value="{{ t3 or '' }}">
+    </div>
+    <button type="submit" class="compare-btn">Compare →</button>
+  </form>
+
+  {% if stocks %}
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th class="row-label">Metric</th>
+          {% for s in stocks %}
+          <th>{{ s.ticker }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-label">Consensus Score</td>
+          {% for s in stocks %}
+          <td>
+            <div class="score-big {{ 'winner' if s.score == best_score else '' }}">
+              {{ s.score|int if s.score else '–' }}
+            </div>
+          </td>
+          {% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Sources Agree</td>
+          {% for s in stocks %}<td>{{ s.sources or '–' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Yahoo Strong Buy</td>
+          {% for s in stocks %}<td>{% if s.yahoo_sb == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Zacks #1</td>
+          {% for s in stocks %}<td>{% if s.zacks == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Morningstar</td>
+          {% for s in stocks %}<td>{% if s.morningstar == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Insider Buying</td>
+          {% for s in stocks %}<td>{% if s.insider == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">EPS Revision ↑</td>
+          {% for s in stocks %}<td>{% if s.eps_rev == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Beats S&P 500</td>
+          {% for s in stocks %}<td>{% if s.beats_sp == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Price</td>
+          {% for s in stocks %}<td style="font-family:'DM Mono',monospace;">${{ s.price or '–' }}</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Analyst Upside</td>
+          {% for s in stocks %}
+          <td class="{{ 'winner' if s.upside_pct and s.upside_pct == best_upside else '' }}">
+            {{ s.upside_pct or '–' }}%
+          </td>
+          {% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">52w Position</td>
+          {% for s in stocks %}<td>{{ s.week52_pos or '–' }}%</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Short Interest</td>
+          {% for s in stocks %}
+          <td class="{{ 'loser' if (s.short_pct or 0) > 20 else '' }}">{{ s.short_pct or '–' }}%</td>
+          {% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Streak</td>
+          {% for s in stocks %}
+          <td style="color:var(--yellow);">{{ ('🔥' + s.streak|string + 'd') if s.streak and s.streak >= 3 else ((s.streak|string + 'd') if s.streak else '–') }}</td>
+          {% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Div Yield</td>
+          {% for s in stocks %}<td>{{ s.div_yield or '–' }}%</td>{% endfor %}
+        </tr>
+        <tr>
+          <td class="row-label">Sector</td>
+          {% for s in stocks %}<td style="font-size:12px;color:var(--muted);">{{ s.sector or '–' }}</td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% elif t1 %}
+  <div class="empty">
+    <div class="big">❓</div>
+    <p>No scan data found for those tickers. Make sure they've appeared in a recent scan.</p>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="big">⚖️</div>
+    <p>Enter 2-3 tickers above to compare them side by side across all signals.</p>
+  </div>
+  {% endif %}
+</main>
+</body>
+</html>
