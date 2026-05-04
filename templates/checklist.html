@@ -167,10 +167,13 @@
 <body>
 <nav>
   <div class="nav-logo">📈 Convergence</div>
-  <div class="nav-links">
+    <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
-    <a href="{{ url_for('checklist') }}" class="active">Checklist</a>
+    <a href="{{ url_for('sectors') }}">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
