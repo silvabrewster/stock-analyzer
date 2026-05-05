@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Convergence">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Convergence — Research Checklist</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -167,12 +174,14 @@
 <body>
 <nav>
   <div class="nav-logo">📈 Convergence</div>
-    <div class="nav-links">
+      <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
     <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
+    <a href="{{ url_for('backtest') }}">Backtest</a>
     <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
@@ -487,5 +496,14 @@ document.getElementById('ticker-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadTicker();
 });
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+          .then(r => console.log('SW registered'))
+          .catch(e => console.log('SW failed:', e));
+      });
+    }
+  </script>
 </body>
 </html>
