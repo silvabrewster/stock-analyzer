@@ -151,8 +151,9 @@
 
 {% if result and not result.error and result.daily_results %}
 <script>
-const dates  = {{ result.daily_results | map(attribute='date') | list | tojson }};
-const values = {{ result.daily_results | map(attribute='portfolio') | list | tojson }};
+const rawResults = {{ result.daily_results | tojson }};
+const dates  = rawResults.map(r => r.date);
+const values = rawResults.map(r => r.portfolio);
 new Chart(document.getElementById('btChart'), {
   type: 'line',
   data: {
