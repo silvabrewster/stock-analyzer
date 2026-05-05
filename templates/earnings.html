@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Convergence">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <title>Convergence — Earnings Calendar</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(11,14,20,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 60px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+    main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .earnings-grid { display: flex; flex-direction: column; gap: 10px; }
+    .earnings-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; transition: border-color 0.15s; }
+    .earnings-card.urgent { border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.04); }
+    .earnings-card:hover { border-color: var(--gold); }
+    .earn-ticker { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: var(--gold); min-width: 80px; }
+    .earn-date { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--muted); }
+    .earn-days { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
+    .days-urgent { background: rgba(251,191,36,0.15); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+    .days-soon { background: rgba(96,165,250,0.12); color: var(--blue); border: 1px solid rgba(96,165,250,0.25); }
+    .score-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 13px; }
+    .score-high { background: rgba(74,222,128,0.1); color: var(--green); }
+    .score-mid { background: rgba(251,191,36,0.1); color: var(--yellow); }
+    .warn-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(251,191,36,0.15); color: var(--yellow); font-weight: 600; }
+    .detail-link { font-size: 12px; color: var(--gold); text-decoration: none; border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; padding: 4px 10px; }
+    .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 20px 0 10px; }
+    .empty { text-align: center; padding: 64px; color: var(--muted); }
+    .empty .big { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('sectors') }}">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}" class="active">Earnings</a>
+    <a href="{{ url_for('backtest') }}">Backtest</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+<main>
+  <div class="page-title">📅 Earnings Calendar</div>
+  <p class="page-sub">Upcoming earnings for stocks in your scan universe. Expect volatility around these dates.</p>
+  {% if urgent %}
+  <div class="section-label">⚠️ This Week</div>
+  <div class="earnings-grid">
+    {% for e in urgent %}
+    <div class="earnings-card urgent">
+      <div class="earn-ticker">{{ e.ticker }}</div>
+      <div class="earn-date">{{ e.label }}</div>
+      <span class="earn-days days-urgent">{{ 'Today' if e.days_away == 0 else ('Tomorrow' if e.days_away == 1 else e.days_away|string + 'd') }}</span>
+      <span class="warn-badge">⚠️ Expect Volatility</span>
+      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 60 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
+      <a href="{{ url_for('stock_detail', ticker=e.ticker) }}" class="detail-link">View →</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if upcoming %}
+  <div class="section-label">📅 Next 30 Days</div>
+  <div class="earnings-grid">
+    {% for e in upcoming %}
+    <div class="earnings-card">
+      <div class="earn-ticker">{{ e.ticker }}</div>
+      <div class="earn-date">{{ e.label }}</div>
+      <span class="earn-days days-soon">{{ e.days_away }}d away</span>
+      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 60 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
+      <a href="{{ url_for('stock_detail', ticker=e.ticker) }}" class="detail-link">View →</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if not urgent and not upcoming %}
+  <div class="empty"><div class="big">📅</div><p>No upcoming earnings found. Run a scan first.</p></div>
+  {% endif %}
+</main>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');</script>
+</body>
+</html>
