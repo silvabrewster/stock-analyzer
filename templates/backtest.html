@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Convergence">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <title>Convergence — Backtest</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
+      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
+      --text: #e8eaf0; --muted: #6b7280;
+      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(11,14,20,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 60px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    .nav-links a.logout { color: var(--red); }
+    main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-family: 'DM Mono', monospace; font-size: 24px; font-weight: 500; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .up { color: var(--green); } .down { color: var(--red); }
+    .chart-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
+    .chart-wrap { height: 240px; position: relative; }
+    .trade-table { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
+    th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf2); }
+    td { padding: 11px 14px; }
+    .disclaimer { background: rgba(107,114,128,0.08); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; font-size: 12px; color: var(--muted); margin-top: 20px; line-height: 1.6; }
+    .run-btn { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 24px; }
+    .run-btn:hover { opacity: 0.85; }
+    .empty { text-align: center; padding: 64px; color: var(--muted); }
+    .empty .big { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('sectors') }}">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
+    <a href="{{ url_for('backtest') }}" class="active">Backtest</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+</nav>
+<main>
+  <div class="page-title">📊 Backtest Results</div>
+  <p class="page-sub">Simulates buying the #1 ranked stock each day and tracks your hypothetical portfolio vs the S&P 500.</p>
+
+  <form method="POST" action="{{ url_for('backtest') }}">
+    <button type="submit" class="run-btn">▶ Run Backtest</button>
+  </form>
+
+  {% if result and not result.error %}
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Portfolio Return</div>
+      <div class="stat-value {{ 'up' if result.total_return > 0 else 'down' }}">{{ result.total_return }}%</div>
+      <div class="stat-sub">Starting $10,000</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Final Value</div>
+      <div class="stat-value">${{ '{:,.0f}'.format(result.final_value) }}</div>
+      <div class="stat-sub">From $10,000</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">vs S&P 500</div>
+      <div class="stat-value {{ 'up' if result.alpha > 0 else 'down' }}">{{ '+' if result.alpha > 0 else '' }}{{ result.alpha }}%</div>
+      <div class="stat-sub">Alpha generated</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-value {{ 'up' if result.win_rate > 50 else 'down' }}">{{ result.win_rate }}%</div>
+      <div class="stat-sub">{{ result.num_trades }} trades</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Best Trade</div>
+      <div class="stat-value up">+{{ result.best_trade.return_pct }}%</div>
+      <div class="stat-sub">{{ result.best_trade.ticker }} on {{ result.best_trade.date }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Worst Trade</div>
+      <div class="stat-value down">{{ result.worst_trade.return_pct }}%</div>
+      <div class="stat-sub">{{ result.worst_trade.ticker }} on {{ result.worst_trade.date }}</div>
+    </div>
+  </div>
+
+  {% if result.daily_results %}
+  <div class="chart-card">
+    <div class="card-title">Portfolio Value Over Time</div>
+    <div class="chart-wrap">
+      <canvas id="btChart"></canvas>
+    </div>
+  </div>
+
+  <div class="trade-table">
+    <table>
+      <thead><tr><th>Date</th><th>Pick</th><th>Return</th><th>Portfolio Value</th></tr></thead>
+      <tbody>
+        {% for r in result.daily_results %}
+        <tr>
+          <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ r.date }}</td>
+          <td style="font-family:'DM Mono',monospace;color:var(--gold);">{{ r.ticker }}</td>
+          <td class="{{ 'up' if r.return_pct > 0 else 'down' }}">{{ '+' if r.return_pct > 0 else '' }}{{ r.return_pct }}%</td>
+          <td style="font-family:'DM Mono',monospace;">${{ '{:,.0f}'.format(r.portfolio) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% elif result and result.error %}
+  <div class="empty"><div class="big">📊</div><p>{{ result.error }}</p></div>
+  {% else %}
+  <div class="empty"><div class="big">📊</div><p>Click Run Backtest to simulate buying the top pick every day and see how your portfolio would have performed.</p></div>
+  {% endif %}
+
+  <div class="disclaimer">
+    ⚠️ <strong>Disclaimer:</strong> Backtest results are hypothetical and based on historical data. Past performance does not guarantee future results. This simulation assumes perfect execution at closing prices with no fees or slippage. Not financial advice.
+  </div>
+</main>
+
+{% if result and not result.error and result.daily_results %}
+<script>
+const dates  = {{ result.daily_results | map(attribute='date') | list | tojson }};
+const values = {{ result.daily_results | map(attribute='portfolio') | list | tojson }};
+new Chart(document.getElementById('btChart'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: 'Portfolio',
+      data: values,
+      borderColor: '#c9a84c',
+      backgroundColor: 'rgba(201,168,76,0.08)',
+      borderWidth: 2,
+      pointRadius: 3,
+      tension: 0.3,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.y.toLocaleString() } } },
+    scales: {
+      y: { ticks: { color: '#6b7280', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(107,114,128,0.15)' } },
+      x: { ticks: { color: '#6b7280', font: { size: 10 }, maxRotation: 30 }, grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endif %}
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');</script>
+</body>
+</html>
