@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Convergence">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Convergence — Stock Analyzer</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -199,12 +206,14 @@
 <body>
 <nav>
   <div class="nav-logo">📈 Convergence</div>
-    <div class="nav-links">
+      <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
     <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
+    <a href="{{ url_for('backtest') }}">Backtest</a>
     <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
@@ -401,6 +410,33 @@ function renderResults(ticker, d) {
       ${renderSignal('⚠️', 'Risk Level', 100 - d.risk_score, 100, riskLabel)}
     </div>
 
+    <!-- News Sentiment -->
+    <div class="ai-card" id="sentiment-card" style="display:none;">
+      <div class="ai-header">
+        <div class="ai-label">News Sentiment</div>
+        <span id="sentiment-badge" class="ai-badge">LOADING</span>
+      </div>
+      <div id="sentiment-headlines" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- Options Flow -->
+    <div class="ai-card" id="options-card" style="display:none;">
+      <div class="ai-header">
+        <div class="ai-label">Options Flow</div>
+        <span id="options-badge" class="ai-badge">LOADING</span>
+      </div>
+      <div id="options-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
+    </div>
+
+    <!-- Institutional -->
+    <div class="ai-card" id="inst-card" style="display:none;">
+      <div class="ai-header">
+        <div class="ai-label">Institutional Ownership</div>
+        <span id="inst-badge" class="ai-badge">LOADING</span>
+      </div>
+      <div id="inst-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
+    </div>
+
     <!-- AI Analysis -->
     <div class="ai-card">
       <div class="ai-header">
@@ -413,6 +449,69 @@ function renderResults(ticker, d) {
 
   // Stream AI text
   streamText('ai-text', d.ai_analysis);
+
+  // Fetch sentiment, options, institutional in parallel
+  fetchSentiment(ticker);
+  fetchOptions(ticker);
+  fetchInstitutional(ticker);
+}
+
+async function fetchSentiment(ticker) {
+  try {
+    const res  = await fetch(`/api/sentiment/${ticker}`);
+    const data = await res.json();
+    const card = document.getElementById('sentiment-card');
+    const badge = document.getElementById('sentiment-badge');
+    card.style.display = 'block';
+    const color = data.label === 'Positive' ? '#4ade80' : (data.label === 'Negative' ? '#f87171' : '#fbbf24');
+    badge.textContent = data.label;
+    badge.style.background = color + '22';
+    badge.style.color = color;
+    const hl = document.getElementById('sentiment-headlines');
+    if (data.headlines && data.headlines.length > 0) {
+      hl.innerHTML = data.headlines.map(h =>
+        `<div style="padding:8px 12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
+          <div style="font-size:13px;line-height:1.5;">${h.title}</div>
+          <div style="font-size:11px;color:${h.score > 0 ? '#4ade80' : (h.score < 0 ? '#f87171' : '#6b7280')};margin-top:4px;">
+            ${h.score > 0 ? '▲ Positive' : (h.score < 0 ? '▼ Negative' : '● Neutral')}
+          </div>
+        </div>`
+      ).join('');
+    } else {
+      hl.innerHTML = '<p style="color:var(--muted);font-size:13px;">No recent news found.</p>';
+    }
+  } catch(e) { console.log('Sentiment error:', e); }
+}
+
+async function fetchOptions(ticker) {
+  try {
+    const res  = await fetch(`/api/options/${ticker}`);
+    const data = await res.json();
+    const card = document.getElementById('options-card');
+    card.style.display = 'block';
+    const badge = document.getElementById('options-badge');
+    const color = data.sentiment === 'Bullish' ? '#4ade80' : (data.sentiment === 'Bearish' ? '#f87171' : '#fbbf24');
+    badge.textContent = data.sentiment || 'Neutral';
+    badge.style.background = color + '22';
+    badge.style.color = color;
+    const detail = document.getElementById('options-detail');
+    detail.innerHTML = data.volume
+      ? `Total options volume: <strong>${data.volume?.toLocaleString()}</strong> · Put/Call ratio: <strong>${data.pc_ratio}</strong> · Signal: <strong style="color:${color}">${data.sentiment}</strong>`
+      : `Options data: <strong>${data.sentiment || 'Neutral'}</strong> signal detected.`;
+  } catch(e) { console.log('Options error:', e); }
+}
+
+async function fetchInstitutional(ticker) {
+  try {
+    const res  = await fetch(`/api/institutional/${ticker}`);
+    const data = await res.json();
+    const card = document.getElementById('inst-card');
+    card.style.display = 'block';
+    const badge = document.getElementById('inst-badge');
+    badge.textContent = data.label || 'n/a';
+    const detail = document.getElementById('inst-detail');
+    detail.innerHTML = `Institutional ownership: <strong>${data.inst_pct}%</strong> of float · Trend: <strong style="color:${data.increasing ? '#4ade80' : '#f87171'}">${data.increasing ? '▲ Increasing' : '▼ Decreasing'}</strong>`;
+  } catch(e) { console.log('Institutional error:', e); }
 }
 
 function renderSignal(icon, name, score, max, label) {
@@ -466,5 +565,14 @@ document.getElementById('ticker-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') analyze();
 });
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+          .then(r => console.log('SW registered'))
+          .catch(e => console.log('SW failed:', e));
+      });
+    }
+  </script>
 </body>
 </html>
