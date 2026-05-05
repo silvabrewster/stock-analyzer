@@ -170,7 +170,7 @@ def send_email(df: pd.DataFrame, market: dict, warning, ai_brief: str = ""):
         &nbsp;&nbsp; VIX: <strong>{vix.get('price','n/a')}</strong>
         &nbsp;&nbsp; 10yr: <strong>{tny.get('price','n/a')}%</strong>
       </div>
-      {"<div style='background:#161c2a;border-left:3px solid #c9a84c;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:16px;font-size:13px;color:#e8eaf0;line-height:1.6;'><strong style='color:#c9a84c;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;'>AI Market Brief</strong>" + ai_brief + "</div>" if ai_brief else ""}
+      {f'<div style="background:#161c2a;border-left:3px solid #c9a84c;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:16px;font-size:13px;color:#e8eaf0;line-height:1.6;"><strong style="color:#c9a84c;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px;">AI Market Brief</strong>{ai_brief}</div>' if ai_brief else ""}
       {warning_html}
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:#1a1a2e;color:white;">
@@ -221,6 +221,7 @@ def daily_job():
             from features import generate_market_brief
             top_list = df.head(5).to_dict('records')
             ai_brief = generate_market_brief(top_list, market)
+            market["ai_brief"] = ai_brief  # store in market dict for DB
             print(f"  ✓ AI market brief generated")
         except Exception as e:
             print(f"  ✗ AI brief error: {e}")
