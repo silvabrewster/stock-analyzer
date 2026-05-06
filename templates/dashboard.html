@@ -24,51 +24,10 @@
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
     body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.02) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
 
-    /* ── NAV ── */
-    nav {
-      position: sticky; top: 0; z-index: 200;
-      background: rgba(11,14,20,0.95); backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-      height: var(--nav-h);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; gap: 12px;
-    }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-    /* hamburger menu for mobile */
-    .hamburger { display: none; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); }
-    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
-    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px, 4px); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px, -4px); }
-
-    /* desktop nav links */
-    .nav-links { display: flex; gap: 2px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-    .nav-links::-webkit-scrollbar { display: none; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
-    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
-    .nav-links a.logout { color: var(--red); }
-    .nav-links a.nav-sep { color: var(--border); pointer-events: none; padding: 0 2px; }
-
-    /* mobile dropdown */
-    .mobile-menu {
-      display: none; position: fixed; top: var(--nav-h); left: 0; right: 0;
-      background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border);
-      z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px;
-      backdrop-filter: blur(16px);
-    }
-    .mobile-menu.open { display: flex; }
-    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
-    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
-    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
-    .mobile-menu a.logout { color: var(--red); }
-    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    {% include '_nav_assets.html' %}
 
     main { position: relative; z-index: 1; padding: 16px 20px 32px; max-width: 1400px; margin: 0 auto; }
 
-    /* ── MARKET BAR ── */
     .market-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .mkt-card { background: var(--surf); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 120px; }
     .mkt-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 5px; }
@@ -76,34 +35,23 @@
     .mkt-chg { font-size: 11px; margin-top: 2px; }
     .up { color: var(--green); } .down { color: var(--red); }
 
-    /* ── HEADER ── */
     .header-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
     .page-title { font-family: 'DM Serif Display', serif; font-size: 22px; font-weight: 400; }
     .scan-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-    /* AI brief */
-    .ai-brief {
-      background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02));
-      border: 1px solid rgba(201,168,76,0.2); border-radius: 10px;
-      padding: 12px 16px; margin-bottom: 16px;
-      font-size: 13px; line-height: 1.7; color: var(--text);
-      display: flex; gap: 10px; align-items: flex-start;
-    }
+    .ai-brief { background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02)); border: 1px solid rgba(201,168,76,0.2); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; line-height: 1.7; color: var(--text); display: flex; gap: 10px; align-items: flex-start; }
     .ai-brief-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 
-    /* ── STREAKS ── */
     .streaks-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .streak-chip { background: var(--surf); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
     .streak-chip .tk { font-weight: 600; font-family: 'DM Mono', monospace; color: var(--gold); }
 
-    /* ── TABLE WRAPPER ── */
     .table-container { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .table-scroll::-webkit-scrollbar { height: 4px; }
     .table-scroll::-webkit-scrollbar-track { background: var(--border); }
     .table-scroll::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
 
-    /* column toggle bar */
     .col-toggle { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; align-items: center; }
     .col-toggle-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 4px; }
     .col-btn { font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
@@ -134,27 +82,17 @@
     .check { color: var(--green); } .dash { color: var(--border); font-size: 10px; }
     .streak-fire { color: var(--yellow); font-family: 'DM Mono', monospace; font-size: 11px; }
     .sector-tag { font-size: 10px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
-
     .upside-up   { color: var(--green); font-weight: 500; }
     .upside-mid  { color: var(--yellow); font-weight: 500; }
     .upside-down { color: var(--red); font-weight: 500; }
-
     .w52-bar { display: flex; align-items: center; gap: 5px; min-width: 80px; }
     .w52-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .w52-fill { height: 100%; background: var(--gold); border-radius: 2px; }
     .w52-pct { font-size: 10px; color: var(--muted); width: 28px; text-align: right; }
-
-    /* hidden columns */
-    .col-optional { }
     .col-hidden { display: none !important; }
 
-    /* ── MOBILE CARD VIEW ── */
     .mobile-cards { display: none; flex-direction: column; gap: 8px; padding: 12px; }
-    .mobile-card {
-      background: var(--surf2); border: 1px solid var(--border);
-      border-radius: 10px; padding: 12px 14px; cursor: pointer;
-      transition: border-color 0.15s;
-    }
+    .mobile-card { background: var(--surf2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: border-color 0.15s; }
     .mobile-card:hover { border-color: var(--gold); }
     .mc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .mc-ticker { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; color: var(--gold); }
@@ -166,8 +104,6 @@
     .mc-stats span strong { color: var(--text); }
 
     @media (max-width: 768px) {
-      .hamburger { display: flex; }
-      .nav-links  { display: none; }
       .table-container .table-scroll { display: none; }
       .table-container .col-toggle   { display: none; }
       .mobile-cards { display: flex; }
@@ -178,50 +114,10 @@
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">
-    <div class="live-dot"></div>
-    📈 Convergence
-  </div>
-  <div class="nav-links">
-    <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
-    <a href="{{ url_for('history') }}">History</a>
-    <a href="{{ url_for('sectors') }}">Sectors</a>
-    <a href="{{ url_for('watchlist') }}">Watchlist</a>
-    <a href="{{ url_for('compare') }}">Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
-    <a href="{{ url_for('backtest') }}">Backtest</a>
-    <a href="{{ url_for('checklist') }}">Checklist</a>
-    <a href="{{ url_for('momentum') }}">Momentum</a>
-    <a href="{{ url_for('analyze') }}">Analyze</a>
-    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
-  </div>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </div>
-</nav>
-
-<!-- MOBILE MENU -->
-<div class="mobile-menu" id="mobile-menu">
-  <div class="mobile-menu-grid">
-    <a href="{{ url_for('dashboard') }}" class="active">🏠 Dashboard</a>
-    <a href="{{ url_for('history') }}">📅 History</a>
-    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
-    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
-    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
-    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
-    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
-    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
-    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
-  </div>
-  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
-</div>
+{% set active_page = 'dashboard' %}
+{% include '_nav.html' %}
 
 <main>
-
-  <!-- Market bar -->
   {% if market %}
   <div class="market-bar">
     <div class="mkt-card">
@@ -252,7 +148,6 @@
   </div>
   {% endif %}
 
-  <!-- AI Brief -->
   {% if ai_brief %}
   <div class="ai-brief">
     <div class="ai-brief-icon">🤖</div>
@@ -260,7 +155,6 @@
   </div>
   {% endif %}
 
-  <!-- Header -->
   <div class="header-row">
     <div>
       <div class="page-title">Today's Top Picks</div>
@@ -268,7 +162,6 @@
     </div>
   </div>
 
-  <!-- Streak leaders -->
   {% if streaks %}
   <div class="streaks-row">
     <span style="font-size:11px;color:var(--muted);align-self:center;">🔥 Streaks:</span>
@@ -281,7 +174,6 @@
   </div>
   {% endif %}
 
-  <!-- Desktop Table -->
   <div class="table-container">
     <div class="col-toggle">
       <span class="col-toggle-label">Show:</span>
@@ -326,17 +218,11 @@
                 {% if s.vol_spike == '1' %}<span class="vol-badge">🔥</span>{% endif %}
               </div>
             </td>
-            <td>
-              <span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}">
-                {{ '%0.0f'|format(score) }}
-              </span>
-            </td>
+            <td><span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}">{{ '%0.0f'|format(score) }}</span></td>
             <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;">{{ s.sources or '–' }}</td>
             <td>
-              {% if s.streak and s.streak >= 3 %}
-                <span class="streak-fire">🔥{{ s.streak }}d</span>
-              {% elif s.streak and s.streak > 0 %}
-                <span style="color:var(--muted);font-size:11px;">{{ s.streak }}d</span>
+              {% if s.streak and s.streak >= 3 %}<span class="streak-fire">🔥{{ s.streak }}d</span>
+              {% elif s.streak and s.streak > 0 %}<span style="color:var(--muted);font-size:11px;">{{ s.streak }}d</span>
               {% else %}<span class="dash">–</span>{% endif %}
             </td>
             <td class="col-signals">{% if s.yahoo_sb == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
@@ -347,20 +233,14 @@
             <td class="col-signals">{% if s.beats_sp == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
             <td class="col-price" style="font-family:'DM Mono',monospace;">${{ s.price or '–' }}</td>
             <td class="col-upside">
-              {% if s.upside_pct %}
-                <span class="{{ 'upside-up' if s.upside_pct >= 15 else ('upside-mid' if s.upside_pct >= 5 else 'upside-down') }}">
-                  {{ '%0.1f'|format(s.upside_pct) }}%
-                </span>
+              {% if s.upside_pct %}<span class="{{ 'upside-up' if s.upside_pct >= 15 else ('upside-mid' if s.upside_pct >= 5 else 'upside-down') }}">{{ '%0.1f'|format(s.upside_pct) }}%</span>
               {% else %}<span class="dash">–</span>{% endif %}
             </td>
             <td class="col-risk" style="font-size:11px;color:{% if (s.short_pct or 0) > 20 %}var(--red){% else %}var(--muted){% endif %};">{{ s.short_pct or '–' }}%</td>
             <td class="col-risk" style="font-size:11px;color:var(--muted);">{{ s.beta or '–' }}</td>
             <td class="col-extra">
               {% if s.week52_pos %}
-              <div class="w52-bar">
-                <div class="w52-track"><div class="w52-fill" style="width:{{ s.week52_pos }}%;"></div></div>
-                <div class="w52-pct">{{ '%0.0f'|format(s.week52_pos) }}%</div>
-              </div>
+              <div class="w52-bar"><div class="w52-track"><div class="w52-fill" style="width:{{ s.week52_pos }}%;"></div></div><div class="w52-pct">{{ '%0.0f'|format(s.week52_pos) }}%</div></div>
               {% else %}<span class="dash">–</span>{% endif %}
             </td>
             <td class="col-extra" style="font-size:11px;color:var(--muted);">{{ ('%0.1f'|format(s.div_yield) + '%') if s.div_yield else '–' }}</td>
@@ -370,17 +250,12 @@
         </tbody>
       </table>
     </div>
-
-    <!-- Mobile cards -->
     <div class="mobile-cards">
       {% for s in stocks %}
       {% set score = s.score or 0 %}
       <div class="mobile-card" onclick="window.location='/stock/{{ s.ticker }}'">
         <div class="mc-top">
-          <div class="mc-ticker">
-            {{ s.ticker }}
-            {% if s.is_new %}<span class="new-badge" style="font-size:9px;margin-left:4px;">NEW</span>{% endif %}
-          </div>
+          <div class="mc-ticker">{{ s.ticker }}{% if s.is_new %}<span class="new-badge" style="font-size:9px;margin-left:4px;">NEW</span>{% endif %}</div>
           <span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}">{{ '%0.0f'|format(score) }}</span>
         </div>
         <div class="mc-signals">
@@ -402,59 +277,37 @@
       {% endfor %}
     </div>
   </div>
-
-  <p style="font-size:10px;color:var(--muted);margin-top:12px;line-height:1.8;">
-    Score: Yahoo(22) + Zacks(22) + Morningstar(18) + Insider(12) + Vanguard(10) + EPS Rev(8) + RS(8)
-    &nbsp;·&nbsp; Click any row to view full stock detail
-    &nbsp;·&nbsp; <em>Not financial advice.</em>
-  </p>
-
+  <p style="font-size:10px;color:var(--muted);margin-top:12px;line-height:1.8;">Score: Yahoo(22) + Zacks(22) + Morningstar(18) + Insider(12) + Vanguard(10) + EPS Rev(8) + RS(8) &nbsp;·&nbsp; Click any row to view full stock detail &nbsp;·&nbsp; <em>Not financial advice.</em></p>
 </main>
 
 <script>
-function toggleMenu() {
-  const h = document.getElementById('hamburger');
-  const m = document.getElementById('mobile-menu');
-  h.classList.toggle('open');
-  m.classList.toggle('open');
-}
-
-// Column toggle
-const colMap = {
-  signals: 'col-signals', price: 'col-price',
-  upside:  'col-upside',  risk:   'col-risk',
-  sector:  'col-sector',  extra:  'col-extra'
-};
+const colMap = { signals:'col-signals', price:'col-price', upside:'col-upside', risk:'col-risk', sector:'col-sector', extra:'col-extra' };
 function toggleCol(key, btn) {
   btn.classList.toggle('active');
-  const cls    = colMap[key];
   const hidden = !btn.classList.contains('active');
-  document.querySelectorAll('.' + cls).forEach(el => {
-    el.classList.toggle('col-hidden', hidden);
-  });
+  document.querySelectorAll('.'+colMap[key]).forEach(el => el.classList.toggle('col-hidden', hidden));
 }
-// Hide extra cols by default on desktop
 document.querySelectorAll('.col-extra').forEach(el => el.classList.add('col-hidden'));
 
-// Table sort
 let sortDir = -1, sortCol = 1;
 function sortTable(col) {
   const tbody = document.querySelector('#main-table tbody');
   const rows  = Array.from(tbody.querySelectorAll('tr'));
   if (sortCol === col) sortDir *= -1; else sortDir = -1;
   sortCol = col;
-  rows.sort((a, b) => {
+  rows.sort((a,b) => {
     const av = a.cells[col]?.textContent.trim().replace(/[^0-9.-]/g,'') || '0';
     const bv = b.cells[col]?.textContent.trim().replace(/[^0-9.-]/g,'') || '0';
     return sortDir * (parseFloat(av) - parseFloat(bv));
   });
   rows.forEach(r => tbody.appendChild(r));
-  document.querySelectorAll('th').forEach((th, i) => {
-    th.classList.toggle('sorted', i === col);
-    const arrow = th.querySelector('.sort-arrow');
-    if (arrow && i === col) arrow.textContent = sortDir === -1 ? '↓' : '↑';
+  document.querySelectorAll('th').forEach((th,i) => {
+    th.classList.toggle('sorted', i===col);
+    const a = th.querySelector('.sort-arrow');
+    if (a && i===col) a.textContent = sortDir===-1?'↓':'↑';
   });
 }
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
 </script>
 </body>
