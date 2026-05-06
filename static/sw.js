@@ -1,4 +1,4 @@
-const CACHE_NAME = 'convergence-v1';
+const CACHE_NAME = 'convergence-v2';
 const STATIC_ASSETS = [
   '/',
   '/static/manifest.json',
@@ -7,9 +7,7 @@ const STATIC_ASSETS = [
 // Install — cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -26,14 +24,11 @@ self.addEventListener('activate', event => {
 
 // Fetch — network first, fallback to cache
 self.addEventListener('fetch', event => {
-  // Skip non-GET and API requests
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
-
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cache successful responses
         if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
@@ -41,10 +36,8 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Fallback to cache when offline
         return caches.match(event.request).then(cached => {
           if (cached) return cached;
-          // Return offline page for navigation requests
           if (event.request.mode === 'navigate') {
             return new Response(`
               <!DOCTYPE html>
@@ -77,5 +70,46 @@ self.addEventListener('fetch', event => {
           }
         });
       })
+  );
+});
+
+// ── Push notification handler ──────────────────────────────────────────────
+self.addEventListener('push', event => {
+  let data = { title: '📈 Convergence Alert', body: 'New stock alert fired.', url: '/' };
+  try {
+    data = event.data.json();
+  } catch(e) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body:    data.body,
+      icon:    '/static/icon-192.png',
+      badge:   '/static/icon-192.png',
+      tag:     data.tag || 'convergence-alert',
+      data:    { url: data.url || '/' },
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'view',    title: '📊 View' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ]
+    })
+  );
+});
+
+// Tap notification → open app
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
   );
 });
