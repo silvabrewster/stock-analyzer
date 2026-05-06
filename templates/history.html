@@ -12,28 +12,31 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --nav-h: 56px; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
     body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
-    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 56px; }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
     .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
-    .hamburger span { width: 22px; height: 2px; background: var(--muted); border-radius: 2px; transition: all 0.3s; }
-    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
-    .nav-menu { display: flex; align-items: center; gap: 2px; }
-    .nav-menu a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
-    .nav-menu a:hover, .nav-menu a.active { color: var(--text); background: var(--surf); }
-    .nav-menu a.logout { color: var(--red); }
-    @media (max-width: 768px) {
-      .hamburger { display: flex; }
-      .nav-menu { display: none; position: fixed; top: 56px; left: 0; right: 0; background: rgba(11,14,20,0.98); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-direction: column; align-items: stretch; gap: 0; z-index: 199; padding: 8px; }
-      .nav-menu.open { display: flex; }
-      .nav-menu a { padding: 12px 16px; font-size: 14px; border-radius: 8px; }
-    }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
+    .nav-links a.logout { color: var(--red); }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .hamburger { display: flex; } .nav-links { display: none; } main { padding: 14px; } }
     main { position: relative; z-index: 1; padding: 24px 20px; max-width: 1100px; margin: 0 auto; }
     .page-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 6px; }
     .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
@@ -48,7 +51,8 @@
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: var(--surf2); }
     td { padding: 11px 14px; }
-    .tk { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--gold); font-size: 14px; }
+    .tk { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--gold); font-size: 14px; text-decoration: none; }
+    .tk:hover { text-decoration: underline; }
     .score-pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 12px; }
     .score-high { background: rgba(74,222,128,0.1); color: var(--green); }
     .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); }
@@ -58,19 +62,33 @@
     .bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); border-radius: 2px; }
     .streak-fire { color: var(--yellow); }
     .empty { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+
+    /* ── AI INSIGHTS PANEL ── */
+    .insights-card {
+      background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02));
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 14px; padding: 20px 24px; margin-bottom: 28px;
+    }
+    .insights-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .insights-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .insights-meta { font-size: 11px; color: var(--muted); }
+    .insights-list { display: flex; flex-direction: column; gap: 10px; }
+    .insight-item { font-size: 13px; line-height: 1.6; color: var(--text); padding: 12px 14px; background: rgba(0,0,0,0.2); border-radius: 8px; border-left: 3px solid var(--gold); }
+    .insights-loading { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+    .insights-spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .insights-empty { font-size: 13px; color: var(--muted); padding: 8px 0; }
   </style>
 </head>
 <body>
 <nav>
   <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
-  <div style="display:flex;align-items:center;gap:8px;">
-    <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
-  </div>
-  <div class="nav-menu" id="nav-menu">
+  <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}" class="active">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
     <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
@@ -79,11 +97,51 @@
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}" class="active">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
+
 <main>
   <div class="page-title">📅 History</div>
-  <p class="page-sub">All-time top performers and daily #1 picks from every scan.</p>
+  <p class="page-sub">All-time top performers, daily #1 picks, and AI pattern insights from your scan history.</p>
 
+  <!-- ── AI INSIGHTS ── -->
+  <div class="insights-card">
+    <div class="insights-header">
+      <div class="insights-title">🤖 AI Pattern Insights</div>
+      {% if ai_insights and ai_insights.ready %}
+      <div class="insights-meta">Based on {{ ai_insights.days_analyzed }} days of scans · Updated {{ ai_insights.updated }}</div>
+      {% endif %}
+    </div>
+    {% if ai_insights and ai_insights.ready and ai_insights.insights %}
+      <div class="insights-list">
+        {% for insight in ai_insights.insights %}
+        <div class="insight-item">{{ insight }}</div>
+        {% endfor %}
+      </div>
+    {% elif ai_insights and not ai_insights.ready %}
+      <div class="insights-empty">{{ ai_insights.reason }}</div>
+    {% else %}
+      <div class="insights-empty">Run more daily scans to unlock AI pattern analysis — it learns which signal combinations are working best for you.</div>
+    {% endif %}
+  </div>
+
+  <!-- ── ALL-TIME TOP PERFORMERS ── -->
   <div class="section">
     <div class="section-title">🏆 All-Time Top Performers</div>
     <div class="table-outer"><div class="table-scroll">
@@ -112,6 +170,7 @@
     </div></div>
   </div>
 
+  <!-- ── DAILY #1 PICK ── -->
   <div class="section">
     <div class="section-title">📊 Daily #1 Pick</div>
     <div class="table-outer"><div class="table-scroll">
@@ -134,17 +193,11 @@
     </div></div>
   </div>
 </main>
+
 <script>
-function toggleMenu() {
-  document.getElementById('nav-menu').classList.toggle('open');
-  document.getElementById('hamburger').classList.toggle('open');
-}
-document.addEventListener('click', e => {
-  const m = document.getElementById('nav-menu');
-  const b = document.getElementById('hamburger');
-  if (!m.contains(e.target) && !b.contains(e.target)) { m.classList.remove('open'); b.classList.remove('open'); }
-});
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
+function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
 </script>
 </body>
 </html>
