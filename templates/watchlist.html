@@ -3,125 +3,92 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- PWA -->
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#c9a84c">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Convergence">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Convergence — Watchlist</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
-      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
-      --text: #e8eaf0; --muted: #6b7280;
-      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
-    }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --nav-h: 56px; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
-    body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
-      background-size: 40px 40px; pointer-events: none;
-    }
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 32px; height: 60px;
-    }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
-    .nav-links { display: flex; gap: 8px; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
-    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
     .nav-links a.logout { color: var(--red); }
-    main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .hamburger { display: flex; } .nav-links { display: none; } main { padding: 16px; } }
+    main { position: relative; z-index: 1; padding: 28px; max-width: 900px; margin: 0 auto; }
     .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
     .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
-
-    /* Add form */
-    .add-form {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
-      display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
-    }
+    .add-form { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-    input[type="text"], input[type="number"], textarea {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 14px;
-      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
-      outline: none; transition: border-color 0.2s;
-    }
-    input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-color: var(--gold); }
+    input[type="text"], input[type="number"] { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    input[type="text"]:focus, input[type="number"]:focus { border-color: var(--gold); }
     .ticker-input { width: 100px; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; }
     .price-input  { width: 110px; }
     .notes-input  { width: 240px; }
-    .add-btn {
-      background: linear-gradient(135deg, var(--gold), var(--gold2));
-      color: #0b0e14; border: none; border-radius: 8px;
-      padding: 10px 22px; font-size: 14px; font-weight: 600;
-      cursor: pointer; transition: opacity 0.2s; align-self: flex-end;
-    }
+    .add-btn { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; border: none; border-radius: 8px; padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; align-self: flex-end; }
     .add-btn:hover { opacity: 0.85; }
-
-    /* Watchlist cards */
     .watchlist { display: flex; flex-direction: column; gap: 10px; }
-    .watch-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 12px; padding: 18px 22px;
-      display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
-    }
+    .watch-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; transition: border-color 0.15s; }
+    .watch-card.alert-target { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.03); }
+    .watch-card.alert-near   { border-color: rgba(251,191,36,0.4); }
     .watch-ticker { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; color: var(--gold); min-width: 80px; }
     .watch-info   { flex: 1; min-width: 200px; }
     .watch-notes  { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
     .watch-meta   { font-size: 11px; color: var(--border); margin-top: 6px; }
     .watch-score  { text-align: right; }
-    .score-pill {
-      display: inline-block; padding: 4px 12px; border-radius: 20px;
-      font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500;
-    }
+    .score-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; }
     .score-high { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
     .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
     .score-none { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
     .target-price { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .target-up   { color: var(--green); }
-    .target-down { color: var(--red); }
-    .del-btn {
-      background: none; border: 1px solid var(--border); color: var(--muted);
-      border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
+    .target-up   { color: var(--red); }
+    .target-down { color: var(--green); }
+    .del-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
     .del-btn:hover { border-color: var(--red); color: var(--red); }
-    .detail-link {
-      font-size: 12px; color: var(--gold); text-decoration: none;
-      border: 1px solid rgba(201,168,76,0.3); border-radius: 6px;
-      padding: 4px 10px; transition: background 0.15s;
-    }
+    .detail-link { font-size: 12px; color: var(--gold); text-decoration: none; border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; padding: 4px 10px; transition: background 0.15s; }
     .detail-link:hover { background: rgba(201,168,76,0.08); }
     .watch-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .not-in-scan { font-size: 11px; color: var(--muted); }
-    .in-scan-badge {
-      font-size: 10px; padding: 2px 8px; border-radius: 4px;
-      background: rgba(74,222,128,0.1); color: var(--green);
-      border: 1px solid rgba(74,222,128,0.2); font-weight: 600;
-    }
+    .in-scan-badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); font-weight: 600; }
+    .price-alert-badge { font-size: 11px; padding: 3px 10px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .price-alert-target { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+    .price-alert-near   { background: rgba(251,191,36,0.12); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
     .empty { text-align: center; padding: 48px; color: var(--muted); }
     .empty .big { font-size: 40px; margin-bottom: 12px; }
+    .alert-tip { background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--muted); margin-bottom: 16px; }
   </style>
 </head>
 <body>
 <nav>
-  <div class="nav-logo">📈 Convergence</div>
-    <div class="nav-links">
+  <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
+  <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
-    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('watchlist') }}" class="active">Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
     <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
@@ -130,11 +97,30 @@
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}" class="active">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
 
 <main>
   <div class="page-title">⭐ Watchlist</div>
-  <p class="page-sub">Track stocks you're watching with target prices and notes. See their latest scan scores.</p>
+  <p class="page-sub">Track stocks with target prices — get a push notification when they hit your target.</p>
+
+  <div class="alert-tip">🎯 Set a target price to get a push notification when the stock reaches your buy zone. Green border = at or below target. Yellow = within 2%.</div>
 
   <form class="add-form" method="POST" action="{{ url_for('watchlist_add') }}">
     <div class="form-group">
@@ -142,12 +128,12 @@
       <input class="ticker-input" type="text" name="ticker" placeholder="AAPL" maxlength="5" required>
     </div>
     <div class="form-group">
-      <label>Target Price</label>
-      <input class="price-input" type="number" name="target_price" placeholder="$200.00" step="0.01">
+      <label>Target Buy Price</label>
+      <input class="price-input" type="number" name="target_price" placeholder="$150.00" step="0.01">
     </div>
     <div class="form-group">
       <label>Notes</label>
-      <input class="notes-input" type="text" name="notes" placeholder="Why you're watching this...">
+      <input class="notes-input" type="text" name="notes" placeholder="Why you're watching...">
     </div>
     <button type="submit" class="add-btn">+ Add to Watchlist</button>
   </form>
@@ -155,28 +141,31 @@
   {% if watchlist %}
   <div class="watchlist">
     {% for w in watchlist %}
-    <div class="watch-card">
+    <div class="watch-card {% if w.price_alert == 'at_or_below' %}alert-target{% elif w.price_alert == 'near_target' %}alert-near{% endif %}">
       <div>
         <div class="watch-ticker">{{ w.ticker }}</div>
-        {% if w.in_scan %}
-        <span class="in-scan-badge">IN TODAY'S SCAN</span>
+        {% if w.in_scan %}<span class="in-scan-badge">IN TODAY'S SCAN</span>{% endif %}
+        {% if w.price_alert == 'at_or_below' %}
+        <div style="margin-top:6px;"><span class="price-alert-badge price-alert-target">🎯 Hit Target!</span></div>
+        {% elif w.price_alert == 'near_target' %}
+        <div style="margin-top:6px;"><span class="price-alert-badge price-alert-near">⚡ Near Target</span></div>
         {% endif %}
       </div>
       <div class="watch-info">
-        {% if w.notes %}
-        <div class="watch-notes">{{ w.notes }}</div>
-        {% endif %}
+        {% if w.notes %}<div class="watch-notes">{{ w.notes }}</div>{% endif %}
         <div class="watch-meta">Added {{ w.added_date }}</div>
         {% if w.target_price and w.current_price %}
           {% set diff = ((w.current_price - w.target_price) / w.target_price * 100) %}
           <div class="target-price">
-            Target: ${{ w.target_price }} · Current: ${{ w.current_price }}
-            <span class="{{ 'target-down' if diff > 0 else 'target-up' }}">
+            Target: ${{ w.target_price }} · Live: ${{ w.current_price }}
+            <span class="{{ 'target-up' if diff > 0 else 'target-down' }}">
               ({{ '+' if diff > 0 else '' }}{{ diff|round(1) }}% {{ 'above' if diff > 0 else 'below' }} target)
             </span>
           </div>
         {% elif w.target_price %}
-          <div class="target-price">Target: ${{ w.target_price }}</div>
+          <div class="target-price">Target: ${{ w.target_price }} · Price loading...</div>
+        {% elif w.current_price %}
+          <div class="target-price">Current: ${{ w.current_price }}</div>
         {% endif %}
       </div>
       <div class="watch-score">
@@ -199,18 +188,15 @@
   {% else %}
   <div class="empty">
     <div class="big">⭐</div>
-    <p>Your watchlist is empty. Add stocks above to track them alongside your daily scan results.</p>
+    <p>Your watchlist is empty. Add stocks above to track them with price alerts.</p>
   </div>
   {% endif %}
 </main>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-          .then(r => console.log('SW registered'))
-          .catch(e => console.log('SW failed:', e));
-      });
-    }
-  </script>
+
+<script>
+function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+</script>
 </body>
 </html>
