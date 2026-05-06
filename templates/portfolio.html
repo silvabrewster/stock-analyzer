@@ -12,27 +12,19 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
-      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
-      --text: #e8eaf0; --muted: #6b7280;
-      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
-      --nav-h: 56px;
-    }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --orange: #fb923c; --nav-h: 56px; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
     body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
-
-    /* NAV */
     nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
     .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
     .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .hamburger { display: none; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
     .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
     .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
-    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
     .nav-links::-webkit-scrollbar { display: none; }
     .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
     .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
@@ -45,12 +37,9 @@
     .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
     .mobile-menu a.logout { color: var(--red); }
     @media (max-width: 768px) { .hamburger { display: flex; } .nav-links { display: none; } main { padding: 12px; } }
-
     main { position: relative; z-index: 1; padding: 20px; max-width: 1100px; margin: 0 auto; }
     .page-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 4px; }
     .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-
-    /* Summary cards */
     .summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
     .sum-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
     .sum-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
@@ -58,29 +47,43 @@
     .sum-sub { font-size: 11px; margin-top: 3px; color: var(--muted); }
     .pos { color: var(--green); } .neg { color: var(--red); }
 
-    /* Add form */
+    /* ── OPTIMIZATION PANEL ── */
+    .opt-card { border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .opt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .opt-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .health-score-big { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 700; }
+    .health-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+    .health-fill { height: 100%; border-radius: 3px; transition: width 0.6s; }
+    .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 600px) { .opt-grid { grid-template-columns: 1fr; } }
+    .opt-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+    .issue-item { display: flex; gap: 10px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; background: var(--bg); border: 1px solid var(--border); font-size: 12px; }
+    .issue-item.high { border-left: 3px solid var(--red); }
+    .issue-item.medium { border-left: 3px solid var(--orange); }
+    .issue-item.low { border-left: 3px solid var(--yellow); }
+    .issue-icon { font-size: 14px; flex-shrink: 0; }
+    .issue-msg { color: var(--text); margin-bottom: 2px; }
+    .issue-action { color: var(--muted); font-size: 11px; }
+    .positive-item { display: flex; gap: 8px; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: rgba(74,222,128,0.05); border: 1px solid rgba(74,222,128,0.15); font-size: 12px; color: var(--green); }
+    .suggestion-item { display: flex; gap: 8px; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: rgba(201,168,76,0.05); border: 1px solid rgba(201,168,76,0.15); font-size: 12px; color: var(--gold); }
+    .sector-alloc { display: flex; flex-direction: column; gap: 8px; }
+    .sector-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .sector-name { width: 140px; color: var(--muted); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sector-track { flex: 1; height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; position: relative; }
+    .sector-actual { height: 100%; border-radius: 3px; transition: width 0.6s; }
+    .sector-pct { width: 36px; text-align: right; color: var(--text); font-size: 11px; font-family: 'DM Mono', monospace; }
+    .sector-status { font-size: 10px; width: 28px; text-align: right; }
+
     .add-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
     .add-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--gold); }
     .add-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
     .form-group { display: flex; flex-direction: column; gap: 5px; }
     .form-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-    .form-group input {
-      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
-      color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px;
-      padding: 8px 12px; outline: none; transition: border-color 0.15s;
-      width: 120px;
-    }
+    .form-group input { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; padding: 8px 12px; outline: none; transition: border-color 0.15s; width: 120px; }
     .form-group input:focus { border-color: var(--gold); }
     .form-group input.wide { width: 90px; }
-    .add-btn {
-      background: linear-gradient(135deg, var(--gold), var(--gold2));
-      color: #0b0e14; border: none; border-radius: 7px;
-      padding: 9px 20px; font-size: 13px; font-weight: 700;
-      cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
-    }
+    .add-btn { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; border: none; border-radius: 7px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
     .add-btn:hover { opacity: 0.85; }
-
-    /* Holdings table */
     .holdings-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
     .holdings-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     .holdings-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -101,16 +104,10 @@
     .gain-fill { height: 100%; border-radius: 2px; }
     .score-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 11px; }
     .score-high { background: rgba(74,222,128,0.1); color: var(--green); }
-    .score-mid  { background: rgba(251,191,36,0.1);  color: var(--yellow); }
+    .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); }
     .score-low  { background: rgba(107,114,128,0.08); color: var(--muted); }
-
     .remove-btn { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 11px; padding: 3px 9px; cursor: pointer; transition: all 0.15s; }
     .remove-btn:hover { border-color: var(--red); color: var(--red); }
-
-    .empty-state { text-align: center; padding: 48px; color: var(--muted); }
-    .empty-state .big { font-size: 40px; margin-bottom: 12px; }
-
-    /* Allocation chart */
     .alloc-card { background: var(--surf); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
     .alloc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
     .alloc-bars { display: flex; flex-direction: column; gap: 10px; }
@@ -120,11 +117,9 @@
     .alloc-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width 0.6s ease; }
     .alloc-pct { width: 40px; text-align: right; color: var(--muted); font-size: 11px; }
     .alloc-val { width: 80px; text-align: right; color: var(--muted); font-size: 11px; font-family: 'DM Mono', monospace; }
-
+    .empty-state { text-align: center; padding: 48px; color: var(--muted); }
     .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .alert-box { background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: var(--gold); }
   </style>
 </head>
 <body>
@@ -144,7 +139,7 @@
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
 <div class="mobile-menu" id="mobile-menu">
   <div class="mobile-menu-grid">
@@ -165,36 +160,24 @@
 
 <main>
   <div class="page-title">💼 Portfolio Tracker</div>
-  <p class="page-sub">Track your holdings with live prices, gain/loss, and your Convergence scan score</p>
-
-  {% if alerts %}
-  <div class="alert-box">🔔 {{ alerts }}</div>
-  {% endif %}
+  <p class="page-sub">Track your holdings with live prices, gain/loss, and Convergence optimization</p>
 
   <!-- Summary row -->
   <div class="summary-row">
     <div class="sum-card">
       <div class="sum-label">Total Value</div>
-      <div class="sum-value" id="totalValue">
-        {% if holdings %}${{ "{:,.0f}".format(total_value) }}{% else %}$0{% endif %}
-      </div>
+      <div class="sum-value">{% if holdings %}${{ "{:,.0f}".format(total_value) }}{% else %}$0{% endif %}</div>
       <div class="sum-sub">current market value</div>
     </div>
     <div class="sum-card">
       <div class="sum-label">Cost Basis</div>
-      <div class="sum-value" style="color:var(--muted);">
-        {% if holdings %}${{ "{:,.0f}".format(total_cost) }}{% else %}$0{% endif %}
-      </div>
+      <div class="sum-value" style="color:var(--muted);">{% if holdings %}${{ "{:,.0f}".format(total_cost) }}{% else %}$0{% endif %}</div>
       <div class="sum-sub">amount invested</div>
     </div>
     <div class="sum-card">
       <div class="sum-label">Total Gain/Loss</div>
-      <div class="sum-value {{ 'pos' if total_gain >= 0 else 'neg' }}">
-        {% if holdings %}{{ '+' if total_gain >= 0 else '' }}${{ "{:,.0f}".format(total_gain) }}{% else %}$0{% endif %}
-      </div>
-      <div class="sum-sub {{ 'pos' if total_gain_pct >= 0 else 'neg' }}">
-        {% if holdings %}{{ '+' if total_gain_pct >= 0 else '' }}{{ "%.1f"|format(total_gain_pct) }}% return{% else %}no holdings{% endif %}
-      </div>
+      <div class="sum-value {{ 'pos' if total_gain >= 0 else 'neg' }}">{% if holdings %}{{ '+' if total_gain >= 0 else '' }}${{ "{:,.0f}".format(total_gain) }}{% else %}$0{% endif %}</div>
+      <div class="sum-sub {{ 'pos' if total_gain_pct >= 0 else 'neg' }}">{% if holdings %}{{ '+' if total_gain_pct >= 0 else '' }}{{ "%.1f"|format(total_gain_pct) }}%{% else %}no holdings{% endif %}</div>
     </div>
     <div class="sum-card">
       <div class="sum-label">Holdings</div>
@@ -203,49 +186,106 @@
     </div>
     <div class="sum-card">
       <div class="sum-label">Avg Score</div>
-      <div class="sum-value" style="color:var(--gold);">
-        {% if holdings and avg_score %}{{ avg_score }}{% else %}–{% endif %}
-      </div>
+      <div class="sum-value" style="color:var(--gold);">{% if holdings and avg_score %}{{ avg_score }}{% else %}–{% endif %}</div>
       <div class="sum-sub">convergence consensus</div>
     </div>
+    {% if optimization %}
+    <div class="sum-card">
+      <div class="sum-label">Portfolio Health</div>
+      <div class="sum-value" style="color:{{ optimization.health_color }};">{{ optimization.health_score }}</div>
+      <div class="sum-sub" style="color:{{ optimization.health_color }};">{{ optimization.health_emoji }} {{ optimization.health_label }}</div>
+    </div>
+    {% endif %}
   </div>
 
-  <!-- Add holding form -->
+  <!-- ── PORTFOLIO OPTIMIZATION ── -->
+  {% if optimization and holdings %}
+  <div class="opt-card" style="background:var(--surf);border:1px solid var(--border);">
+    <div class="opt-header">
+      <div class="opt-title">🧠 Portfolio Optimization</div>
+      <div>
+        <div class="health-score-big" style="color:{{ optimization.health_color }};">{{ optimization.health_score }}<span style="font-size:14px;color:var(--muted);">/100</span></div>
+        <div class="health-bar" style="width:120px;">
+          <div class="health-fill" style="width:{{ optimization.health_score }}%;background:{{ optimization.health_color }};"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="opt-grid">
+      <!-- Issues -->
+      <div>
+        <div class="opt-section-title">⚠️ Issues ({{ optimization.issues|length }})</div>
+        {% if optimization.issues %}
+          {% for issue in optimization.issues %}
+          <div class="issue-item {{ issue.level }}">
+            <div class="issue-icon">{% if issue.level == 'high' %}🔴{% elif issue.level == 'medium' %}🟠{% else %}🟡{% endif %}</div>
+            <div>
+              <div class="issue-msg">{{ issue.message }}</div>
+              <div class="issue-action">→ {{ issue.action }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="font-size:12px;color:var(--muted);padding:8px;">No issues found ✅</div>
+        {% endif %}
+
+        {% if optimization.positives %}
+        <div class="opt-section-title" style="margin-top:12px;">✅ Strengths</div>
+        {% for p in optimization.positives %}
+        <div class="positive-item">✓ {{ p }}</div>
+        {% endfor %}
+        {% endif %}
+      </div>
+
+      <!-- Sector breakdown -->
+      <div>
+        <div class="opt-section-title">📊 Sector Allocation vs Target</div>
+        <div class="sector-alloc">
+          {% for sec in optimization.sector_breakdown[:8] %}
+          <div class="sector-row">
+            <div class="sector-name">{{ sec.sector }}</div>
+            <div class="sector-track">
+              <div class="sector-actual" style="width:{{ [sec.pct, 100]|min }}%;background:{% if sec.status == 'over' %}var(--orange){% elif sec.status == 'under' %}var(--blue){% else %}var(--green){% endif %};"></div>
+            </div>
+            <div class="sector-pct">{{ sec.pct }}%</div>
+            <div class="sector-status" style="color:{% if sec.status == 'over' %}var(--orange){% elif sec.status == 'under' %}var(--blue){% else %}var(--green){% endif %};">
+              {% if sec.status == 'over' %}↑{% elif sec.status == 'under' %}↓{% else %}✓{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% if optimization.suggestions %}
+        <div class="opt-section-title" style="margin-top:14px;">💡 Suggestions</div>
+        {% for s in optimization.suggestions %}
+        <div class="suggestion-item">→ {{ s }}</div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Add form -->
   <div class="add-card">
     <div class="add-title">+ Add Holding</div>
     <form method="POST" action="{{ url_for('portfolio_add') }}" class="add-form">
-      <div class="form-group">
-        <label>Ticker</label>
-        <input type="text" name="ticker" placeholder="AAPL" required style="text-transform:uppercase;width:90px;">
-      </div>
-      <div class="form-group">
-        <label>Shares</label>
-        <input type="number" name="shares" placeholder="10" step="0.001" min="0.001" required class="wide">
-      </div>
-      <div class="form-group">
-        <label>Buy Price</label>
-        <input type="number" name="buy_price" placeholder="150.00" step="0.01" min="0.01" required class="wide">
-      </div>
-      <div class="form-group">
-        <label>Notes (optional)</label>
-        <input type="text" name="notes" placeholder="Long term hold" style="width:160px;">
-      </div>
+      <div class="form-group"><label>Ticker</label><input type="text" name="ticker" placeholder="AAPL" required style="text-transform:uppercase;width:90px;"></div>
+      <div class="form-group"><label>Shares</label><input type="number" name="shares" placeholder="10" step="0.001" min="0.001" required class="wide"></div>
+      <div class="form-group"><label>Buy Price</label><input type="number" name="buy_price" placeholder="150.00" step="0.01" min="0.01" required class="wide"></div>
+      <div class="form-group"><label>Notes (optional)</label><input type="text" name="notes" placeholder="Long term hold" style="width:160px;"></div>
       <button type="submit" class="add-btn">Add</button>
     </form>
   </div>
 
   {% if holdings %}
-
   <!-- Allocation bars -->
   <div class="alloc-card">
     <div class="alloc-title">Portfolio Allocation</div>
-    <div class="alloc-bars" id="allocBars">
+    <div class="alloc-bars">
       {% for h in holdings %}
       <div class="alloc-row">
         <div class="alloc-label">{{ h.ticker }}</div>
-        <div class="alloc-track">
-          <div class="alloc-fill" style="width:{{ h.alloc_pct }}%;"></div>
-        </div>
+        <div class="alloc-track"><div class="alloc-fill" style="width:{{ h.alloc_pct }}%;"></div></div>
         <div class="alloc-pct">{{ "%.1f"|format(h.alloc_pct) }}%</div>
         <div class="alloc-val">${{ "{:,.0f}".format(h.current_value) }}</div>
       </div>
@@ -261,119 +301,40 @@
     </div>
     <div class="table-scroll">
       <table>
-        <thead>
-          <tr>
-            <th>Ticker</th>
-            <th>Shares</th>
-            <th>Buy Price</th>
-            <th>Current Price</th>
-            <th>Cost Basis</th>
-            <th>Market Value</th>
-            <th>Gain / Loss</th>
-            <th>Return %</th>
-            <th>Scan Score</th>
-            <th>Notes</th>
-            <th></th>
-          </tr>
-        </thead>
+        <thead><tr><th>Ticker</th><th>Shares</th><th>Buy Price</th><th>Current Price</th><th>Cost Basis</th><th>Market Value</th><th>Gain / Loss</th><th>Return %</th><th>Scan Score</th><th>Notes</th><th></th></tr></thead>
         <tbody id="holdingsBody">
           {% for h in holdings %}
           {% set gain = h.current_value - h.cost_basis %}
           {% set gain_pct = (gain / h.cost_basis * 100) if h.cost_basis else 0 %}
           <tr>
-            <td>
-              <a href="{{ url_for('stock_detail', ticker=h.ticker) }}" class="ticker-lnk">{{ h.ticker }}</a>
-            </td>
+            <td><a href="{{ url_for('stock_detail', ticker=h.ticker) }}" class="ticker-lnk">{{ h.ticker }}</a></td>
             <td style="font-family:'DM Mono',monospace;color:var(--muted);">{{ h.shares }}</td>
             <td style="font-family:'DM Mono',monospace;color:var(--muted);">${{ "%.2f"|format(h.buy_price) }}</td>
-            <td style="font-family:'DM Mono',monospace;" class="price-cell-{{ h.ticker }}">
-              {% if h.current_price %}${{ "%.2f"|format(h.current_price) }}{% else %}<span style="color:var(--muted);">–</span>{% endif %}
-            </td>
+            <td style="font-family:'DM Mono',monospace;" class="price-cell-{{ h.ticker }}">{% if h.current_price %}${{ "%.2f"|format(h.current_price) }}{% else %}<span style="color:var(--muted);">–</span>{% endif %}</td>
             <td style="font-family:'DM Mono',monospace;">${{ "{:,.2f}".format(h.cost_basis) }}</td>
-            <td style="font-family:'DM Mono',monospace;" class="value-cell-{{ h.ticker }}">
-              ${{ "{:,.2f}".format(h.current_value) }}
-            </td>
-            <td>
-              <div class="gain-bar-wrap">
-                <div class="gain-bar">
-                  <div class="gain-fill" style="width:{{ [gain_pct|abs, 100]|min }}%;background:{{ 'var(--green)' if gain >= 0 else 'var(--red)' }};"></div>
-                </div>
-                <span class="{{ 'pos' if gain >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:12px;">
-                  {{ '+' if gain >= 0 else '' }}${{ "{:,.0f}".format(gain) }}
-                </span>
-              </div>
-            </td>
-            <td>
-              <span class="{{ 'pos' if gain_pct >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">
-                {{ '+' if gain_pct >= 0 else '' }}{{ "%.1f"|format(gain_pct) }}%
-              </span>
-            </td>
-            <td>
-              {% if h.scan_score %}
-              <span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}">
-                {{ h.scan_score|int }}
-              </span>
-              {% else %}
-              <span style="color:var(--muted);font-size:11px;">not scanned</span>
-              {% endif %}
-            </td>
+            <td style="font-family:'DM Mono',monospace;" class="value-cell-{{ h.ticker }}">${{ "{:,.2f}".format(h.current_value) }}</td>
+            <td><div class="gain-bar-wrap"><div class="gain-bar"><div class="gain-fill" style="width:{{ [gain_pct|abs, 100]|min }}%;background:{{ 'var(--green)' if gain >= 0 else 'var(--red)' }};"></div></div><span class="{{ 'pos' if gain >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ '+' if gain >= 0 else '' }}${{ "{:,.0f}".format(gain) }}</span></div></td>
+            <td><span class="{{ 'pos' if gain_pct >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">{{ '+' if gain_pct >= 0 else '' }}{{ "%.1f"|format(gain_pct) }}%</span></td>
+            <td>{% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}">{{ h.scan_score|int }}</span>{% else %}<span style="color:var(--muted);font-size:11px;">not scanned</span>{% endif %}</td>
             <td style="color:var(--muted);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">{{ h.notes or '–' }}</td>
-            <td>
-              <form method="POST" action="{{ url_for('portfolio_remove', ticker=h.ticker) }}" style="display:inline;" onsubmit="return confirm('Remove {{ h.ticker }}?')">
-                <button type="submit" class="remove-btn">✕</button>
-              </form>
-            </td>
+            <td><form method="POST" action="{{ url_for('portfolio_remove', ticker=h.ticker) }}" style="display:inline;" onsubmit="return confirm('Remove {{ h.ticker }}?')"><button type="submit" class="remove-btn">✕</button></form></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
-
   {% else %}
-  <div class="holdings-card">
-    <div class="empty-state">
-      <div class="big">💼</div>
-      <p>No holdings yet. Add your first stock above.</p>
-      <p style="font-size:12px;margin-top:8px;color:var(--muted);">Enter ticker, number of shares, and what you paid per share.</p>
-    </div>
-  </div>
+  <div class="holdings-card"><div class="empty-state"><div style="font-size:40px;margin-bottom:12px;">💼</div><p>No holdings yet. Add your first stock above.</p></div></div>
   {% endif %}
 
-  <p style="font-size:11px;color:var(--muted);margin-top:8px;">Prices refresh on page load via Yahoo Finance · Not financial advice · <a href="{{ url_for('dashboard') }}" style="color:var(--gold);">← Dashboard</a></p>
+  <p style="font-size:11px;color:var(--muted);margin-top:8px;">Prices refresh via price cache · Not financial advice · <a href="{{ url_for('dashboard') }}" style="color:var(--gold);">← Dashboard</a></p>
 </main>
 
 <script>
-function toggleMenu() {
-  document.getElementById('hamburger').classList.toggle('open');
-  document.getElementById('mobile-menu').classList.toggle('open');
-}
-
-// Refresh prices live without full page reload
-function refreshPrices() {
-  const btn = document.querySelector('.refresh-btn');
-  btn.innerHTML = '<span class="loading-spinner"></span> Refreshing…';
-  btn.disabled = true;
-
-  fetch('/api/portfolio/prices')
-    .then(r => r.json())
-    .then(data => {
-      data.forEach(h => {
-        const priceEl = document.querySelector(`.price-cell-${h.ticker}`);
-        const valueEl = document.querySelector(`.value-cell-${h.ticker}`);
-        if (priceEl && h.current_price) priceEl.textContent = '$' + h.current_price.toFixed(2);
-        if (valueEl && h.current_value) valueEl.textContent = '$' + h.current_value.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-      });
-      btn.innerHTML = '↻ Refresh Prices';
-      btn.disabled = false;
-    })
-    .catch(() => {
-      btn.innerHTML = '↻ Refresh Prices';
-      btn.disabled = false;
-    });
-}
-
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
+function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+function refreshPrices(){const btn=document.querySelector('.refresh-btn');btn.innerHTML='<span class="loading-spinner"></span>Refreshing…';btn.disabled=true;fetch('/api/portfolio/prices').then(r=>r.json()).then(data=>{data.forEach(h=>{const p=document.querySelector(`.price-cell-${h.ticker}`),v=document.querySelector(`.value-cell-${h.ticker}`);if(p&&h.current_price)p.textContent='$'+h.current_price.toFixed(2);if(v&&h.current_value)v.textContent='$'+h.current_value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});});btn.innerHTML='↻ Refresh Prices';btn.disabled=false;}).catch(()=>{btn.innerHTML='↻ Refresh Prices';btn.disabled=false;});}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
 </script>
 </body>
 </html>
