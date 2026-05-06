@@ -1,0 +1,70 @@
+<!-- ── UNIVERSAL NAV — included on every page via {% include '_nav.html' %} ── -->
+<nav>
+  <div class="nav-logo">
+    <div class="live-dot"></div>
+    📈 Convergence
+  </div>
+
+  <!-- Desktop links -->
+  <div class="nav-links" id="nav-links">
+    <a href="{{ url_for('dashboard') }}"         {% if active_page == 'dashboard'  %}class="active"{% endif %}>Dashboard</a>
+    <a href="{{ url_for('history') }}"            {% if active_page == 'history'    %}class="active"{% endif %}>History</a>
+    <a href="{{ url_for('sectors') }}"            {% if active_page == 'sectors'    %}class="active"{% endif %}>Sectors</a>
+    <a href="{{ url_for('watchlist') }}"          {% if active_page == 'watchlist'  %}class="active"{% endif %}>Watchlist</a>
+    <a href="{{ url_for('portfolio') }}"          {% if active_page == 'portfolio'  %}class="active"{% endif %}>Portfolio</a>
+    <a href="{{ url_for('compare') }}"            {% if active_page == 'compare'    %}class="active"{% endif %}>Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}"  {% if active_page == 'earnings'   %}class="active"{% endif %}>Earnings</a>
+    <a href="{{ url_for('backtest') }}"           {% if active_page == 'backtest'   %}class="active"{% endif %}>Backtest</a>
+    <a href="{{ url_for('checklist') }}"          {% if active_page == 'checklist'  %}class="active"{% endif %}>Checklist</a>
+    <a href="{{ url_for('momentum') }}"           {% if active_page == 'momentum'   %}class="active"{% endif %}>Momentum</a>
+    <a href="{{ url_for('analyze') }}"            {% if active_page == 'analyze'    %}class="active"{% endif %}>Analyze</a>
+    <!-- Alert bell -->
+    <a href="#" id="nav-bell" onclick="toggleAlertPanel(event)" style="position:relative;padding:5px 10px;">
+      🔔<span id="alert-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:14px;height:14px;display:none;align-items:center;justify-content:center;line-height:1;">0</span>
+    </a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+
+  <!-- Hamburger (always visible) -->
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}"        {% if active_page == 'dashboard'  %}class="active"{% endif %}>🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}"           {% if active_page == 'history'    %}class="active"{% endif %}>📅 History</a>
+    <a href="{{ url_for('sectors') }}"           {% if active_page == 'sectors'    %}class="active"{% endif %}>🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}"         {% if active_page == 'watchlist'  %}class="active"{% endif %}>⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}"         {% if active_page == 'portfolio'  %}class="active"{% endif %}>💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}"           {% if active_page == 'compare'    %}class="active"{% endif %}>⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}" {% if active_page == 'earnings'   %}class="active"{% endif %}>📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}"          {% if active_page == 'backtest'   %}class="active"{% endif %}>📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}"         {% if active_page == 'checklist'  %}class="active"{% endif %}>📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}"          {% if active_page == 'momentum'   %}class="active"{% endif %}>⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}"           {% if active_page == 'analyze'    %}class="active"{% endif %}>🔬 Analyze</a>
+    <a href="#" onclick="toggleAlertPanel(event)">🔔 Alerts <span id="mobile-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span></a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
+
+<!-- ── Alert panel (slides down from nav) ── -->
+<div id="alert-panel" style="
+  display:none; position:fixed; top:56px; right:0; width:min(380px,100vw);
+  background:var(--surf); border-left:1px solid var(--border); border-bottom:1px solid var(--border);
+  border-radius:0 0 0 12px; z-index:300; max-height:70vh; overflow-y:auto;
+  box-shadow: -4px 4px 24px rgba(0,0,0,0.4);
+">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:13px;font-weight:600;">🔔 Alerts</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="clearAlerts()" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:3px 8px;cursor:pointer;">Clear all</button>
+      <button onclick="toggleAlertPanel(event)" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+  </div>
+  <div id="alert-list" style="padding:8px;">
+    <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">No alerts yet — they'll appear here when the dashboard detects breakouts, volume spikes, or portfolio moves.</div>
+  </div>
+</div>
