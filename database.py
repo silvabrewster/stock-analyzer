@@ -47,6 +47,13 @@ class PostgresWrapper:
                 "ON CONFLICT (ticker) DO UPDATE SET "
                 "shares=EXCLUDED.shares, buy_price=EXCLUDED.buy_price, notes=EXCLUDED.notes"
             )
+        if "INSERT OR REPLACE INTO push_subscriptions" in sql:
+            sql = sql.replace(
+                "INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth)",
+                "INSERT INTO push_subscriptions (endpoint, p256dh, auth) "
+                "ON CONFLICT (endpoint) DO UPDATE SET "
+                "p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth, updated_at=CURRENT_TIMESTAMP"
+            )
         self._cursor.execute(sql, params if params else None)
         return self
 
@@ -146,6 +153,22 @@ def init_db():
             buy_price  REAL NOT NULL,
             notes      TEXT,
             added_date TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS alerts (
+            id         SERIAL PRIMARY KEY,
+            ticker     TEXT NOT NULL,
+            type       TEXT NOT NULL,
+            message    TEXT NOT NULL,
+            seen       INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         SERIAL PRIMARY KEY,
+            endpoint   TEXT NOT NULL UNIQUE,
+            p256dh     TEXT NOT NULL,
+            auth       TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )""",
     ]
     for sql in tables:
