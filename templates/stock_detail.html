@@ -3,103 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- PWA -->
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#c9a84c">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Convergence">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
-  <title>Convergence — Stock Detail</title>
+  <title>Convergence — {{ ticker }}</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
-      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
-      --text: #e8eaf0; --muted: #6b7280;
-      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
-    }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --nav-h: 56px; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
-    body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
-      background-size: 40px 40px; pointer-events: none;
-    }
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 32px; height: 60px;
-    }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
-    .nav-links { display: flex; gap: 8px; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
-    .nav-links a:hover { color: var(--text); background: var(--surf); }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover { color: var(--text); background: var(--surf2); }
     .nav-links a.logout { color: var(--red); }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .nav-links { display: none; } main { padding: 16px; } }
+    main { position: relative; z-index: 1; padding: 24px 32px 40px; max-width: 1000px; margin: 0 auto; }
     .back-link { display: flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 13px; margin-bottom: 20px; transition: color 0.15s; }
     .back-link:hover { color: var(--text); }
-    main { position: relative; z-index: 1; padding: 32px; max-width: 1000px; margin: 0 auto; }
-
-    .ticker-header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      margin-bottom: 24px; flex-wrap: wrap; gap: 16px;
-    }
+    .ticker-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
     .ticker-big { font-family: 'DM Mono', monospace; font-size: 42px; font-weight: 500; color: var(--gold); }
     .ticker-name { color: var(--muted); font-size: 15px; margin-top: 4px; }
-    .ticker-tags { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .ticker-tags { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
     .tag { font-size: 11px; padding: 3px 10px; border-radius: 4px; background: var(--surf); border: 1px solid var(--border); color: var(--muted); }
-    .score-big {
-      text-align: right;
-      font-family: 'DM Serif Display', serif; font-size: 56px; color: var(--gold);
-      line-height: 1;
-    }
+    .smart-buy-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-top: 10px; border: 1px solid transparent; }
+    .smart-buy-strong_buy { background: rgba(74,222,128,0.12); color: var(--green); border-color: rgba(74,222,128,0.3); }
+    .smart-buy-buy        { background: rgba(74,222,128,0.08); color: var(--green); border-color: rgba(74,222,128,0.2); }
+    .smart-buy-neutral    { background: rgba(251,191,36,0.1);  color: var(--yellow); border-color: rgba(251,191,36,0.25); }
+    .smart-buy-avoid      { background: rgba(248,113,113,0.1); color: var(--red);    border-color: rgba(248,113,113,0.25); }
+    .smart-buy-reason { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 400; }
+    .score-big { text-align: right; font-family: 'DM Serif Display', serif; font-size: 56px; color: var(--gold); line-height: 1; }
     .score-label { font-size: 11px; color: var(--muted); text-align: right; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
-    .streak-badge {
-      display: inline-block; margin-top: 8px;
-      padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
-      background: rgba(251,191,36,0.1); color: var(--yellow);
-      border: 1px solid rgba(251,191,36,0.2);
-    }
-
+    .live-price-badge { text-align: right; margin-top: 6px; font-family: 'DM Mono', monospace; font-size: 20px; color: var(--text); font-weight: 500; }
+    .live-price-label { font-size: 10px; color: var(--muted); text-align: right; }
+    .streak-badge { display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
     .card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
     .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
-
-    /* ── TradingView Chart ── */
     .tv-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; margin-bottom: 20px; }
     .tv-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
     .tv-card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
     .tv-timeframes { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tf-btn {
-      padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
-      cursor: pointer; border: 1px solid var(--border); background: var(--bg);
-      color: var(--muted); font-family: 'DM Mono', monospace;
-      transition: all 0.15s;
-    }
+    .tf-btn { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: 'DM Mono', monospace; transition: all 0.15s; }
     .tf-btn:hover { color: var(--text); border-color: var(--gold); }
     .tf-btn.active { background: var(--gold); color: #0b0e14; border-color: var(--gold); }
     .tv-widget-wrap { height: 420px; border-radius: 8px; overflow: hidden; }
-    .tv-widget-wrap iframe { border: none !important; }
-
-    /* Score history chart */
     .chart-wrap { position: relative; height: 240px; }
-
-    /* Signal grid */
     .signal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-    .sig-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 12px 14px; text-align: center;
-    }
+    .sig-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; text-align: center; }
     .sig-icon { font-size: 20px; margin-bottom: 6px; }
     .sig-name { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
     .sig-val  { font-size: 15px; font-weight: 600; }
     .sig-on   { color: var(--green); }
     .sig-off  { color: var(--border); }
-
-    /* History table */
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
     th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
@@ -112,42 +86,20 @@
     .score-high { background: rgba(74,222,128,0.1); color: var(--green); }
     .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); }
     .score-low  { background: rgba(107,114,128,0.08); color: var(--muted); }
-
-    /* Earnings warning */
-    .earnings-banner {
-      background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25);
-      border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
-      display: flex; gap: 12px; align-items: center; font-size: 13px;
-    }
-    .earnings-banner .icon { font-size: 20px; }
-    .earnings-banner strong { color: var(--yellow); }
-
-    /* Analyze button */
-    .analyze-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: linear-gradient(135deg, var(--gold), var(--gold2));
-      color: #0b0e14; font-weight: 700; font-size: 13px;
-      padding: 10px 22px; border-radius: 8px; text-decoration: none;
-      transition: opacity 0.15s, transform 0.15s;
-      border: none; cursor: pointer;
-    }
-    .analyze-btn:hover { opacity: 0.88; transform: translateY(-1px); }
-
-    @media (max-width: 600px) {
-      main { padding: 16px; }
-      nav { padding: 0 16px; }
-      .tv-widget-wrap { height: 320px; }
-    }
+    .analyze-btn { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; font-weight: 700; font-size: 13px; padding: 10px 22px; border-radius: 8px; text-decoration: none; transition: opacity 0.15s; margin-top: 14px; }
+    .analyze-btn:hover { opacity: 0.88; }
+    @media (max-width: 600px) { main { padding: 16px; } .tv-widget-wrap { height: 300px; } }
   </style>
 </head>
 <body>
 <nav>
-  <div class="nav-logo">📈 Convergence</div>
-    <div class="nav-links">
+  <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
+  <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
     <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
@@ -156,17 +108,27 @@
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
 
 <main>
   <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
-
-  {% if earnings_warning %}
-  <div class="earnings-banner">
-    <div class="icon">📅</div>
-    <div><strong>Earnings Alert:</strong> {{ ticker }} reports earnings {{ earnings_warning }}. Expect increased volatility around this date.</div>
-  </div>
-  {% endif %}
 
   <div class="ticker-header">
     <div>
@@ -174,30 +136,32 @@
       <div class="ticker-name">{{ latest.sector or 'Unknown Sector' }}</div>
       <div class="ticker-tags">
         <span class="tag">{{ appearances }} scan appearances</span>
-        {% if avg_score %}
-        <span class="tag">Avg score: {{ avg_score }}</span>
-        {% endif %}
-        {% if max_streak %}
-        <span class="tag">Best streak: {{ max_streak }}d</span>
-        {% endif %}
+        {% if avg_score %}<span class="tag">Avg score: {{ avg_score }}</span>{% endif %}
+        {% if max_streak %}<span class="tag">Best streak: {{ max_streak }}d</span>{% endif %}
       </div>
-      <!-- Quick link to full AI analysis -->
-      <div style="margin-top: 14px;">
-        <a href="{{ url_for('analyze') }}?ticker={{ ticker }}" class="analyze-btn">🤖 Full AI Analysis</a>
+      {% if smart_buy %}
+      <div style="margin-top:10px;">
+        <div class="smart-buy-badge smart-buy-{{ smart_buy.rating }}">{{ smart_buy.emoji }} {{ smart_buy.label }}</div>
+        <div class="smart-buy-reason">{{ smart_buy.reason }}</div>
       </div>
+      {% endif %}
+      <a href="{{ url_for('analyze') }}?ticker={{ ticker }}" class="analyze-btn">🤖 Full AI Analysis</a>
     </div>
     <div>
       <div class="score-big">{{ latest_score }}</div>
-      <div class="score-label">Today's score</div>
-      {% if current_streak >= 3 %}
-      <div class="streak-badge">🔥 {{ current_streak }}-day streak</div>
-      {% elif current_streak > 0 %}
-      <div class="streak-badge">{{ current_streak }}-day streak</div>
+      <div class="score-label">Consensus score</div>
+      {% if live_price %}
+      <div class="live-price-badge">${{ live_price }}</div>
+      <div class="live-price-label">Live price</div>
+      {% elif latest and latest.price %}
+      <div class="live-price-badge">${{ latest.price }}</div>
+      <div class="live-price-label">Last scan price</div>
       {% endif %}
+      {% if current_streak >= 3 %}<div class="streak-badge">🔥 {{ current_streak }}-day streak</div>
+      {% elif current_streak > 0 %}<div class="streak-badge">{{ current_streak }}-day streak</div>{% endif %}
     </div>
   </div>
 
-  <!-- ── TRADINGVIEW LIVE PRICE CHART ── -->
   <div class="tv-card">
     <div class="tv-card-header">
       <div class="tv-card-title">Live Price Chart</div>
@@ -211,112 +175,46 @@
         <button class="tf-btn" onclick="setTimeframe('ALL')">Max</button>
       </div>
     </div>
-    <div class="tv-widget-wrap" id="tv-widget-container">
-      <!-- Widget loads here via JS -->
-    </div>
+    <div class="tv-widget-wrap" id="tv-widget-container"></div>
   </div>
 
-  <!-- Score history chart -->
   {% if chart_dates %}
   <div class="card">
     <div class="card-title">Consensus Score History</div>
-    <div class="chart-wrap">
-      <canvas id="scoreChart"></canvas>
-    </div>
+    <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
   </div>
   {% endif %}
 
-  <!-- Today's signals -->
   {% if latest %}
   <div class="card">
     <div class="card-title">Today's Signals</div>
     <div class="signal-grid">
-      <div class="sig-card">
-        <div class="sig-icon">📊</div>
-        <div class="sig-name">Yahoo Finance</div>
-        <div class="sig-val {{ 'sig-on' if latest.yahoo_sb == '✓' else 'sig-off' }}">{{ latest.yahoo_sb or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">⚡</div>
-        <div class="sig-name">Zacks #1</div>
-        <div class="sig-val {{ 'sig-on' if latest.zacks == '✓' else 'sig-off' }}">{{ latest.zacks or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">⭐</div>
-        <div class="sig-name">Morningstar</div>
-        <div class="sig-val {{ 'sig-on' if latest.morningstar == '✓' else 'sig-off' }}">{{ latest.morningstar or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">👤</div>
-        <div class="sig-name">Insider Buy</div>
-        <div class="sig-val {{ 'sig-on' if latest.insider == '✓' else 'sig-off' }}">{{ latest.insider or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">📈</div>
-        <div class="sig-name">EPS Revision</div>
-        <div class="sig-val {{ 'sig-on' if latest.eps_rev == '✓' else 'sig-off' }}">{{ latest.eps_rev or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">🏆</div>
-        <div class="sig-name">Beats S&P</div>
-        <div class="sig-val {{ 'sig-on' if latest.beats_sp == '✓' else 'sig-off' }}">{{ latest.beats_sp or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">💰</div>
-        <div class="sig-name">Price</div>
-        <div class="sig-val">${{ latest.price or '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">🎯</div>
-        <div class="sig-name">Upside</div>
-        <div class="sig-val {{ 'sig-on' if (latest.upside_pct or 0) >= 10 else '' }}">{{ latest.upside_pct or '–' }}%</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">📉</div>
-        <div class="sig-name">Short Interest</div>
-        <div class="sig-val">{{ latest.short_pct or '–' }}%</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">🔥</div>
-        <div class="sig-name">Vol Spike</div>
-        <div class="sig-val {{ 'sig-on' if latest.vol_spike == '1' else 'sig-off' }}">{{ '✓' if latest.vol_spike == '1' else '–' }}</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">📊</div>
-        <div class="sig-name">52w Position</div>
-        <div class="sig-val">{{ latest.week52_pos or '–' }}%</div>
-      </div>
-      <div class="sig-card">
-        <div class="sig-icon">💎</div>
-        <div class="sig-name">Div Yield</div>
-        <div class="sig-val">{{ latest.div_yield or '–' }}%</div>
-      </div>
+      <div class="sig-card"><div class="sig-icon">📊</div><div class="sig-name">Yahoo Finance</div><div class="sig-val {{ 'sig-on' if latest.yahoo_sb == '✓' else 'sig-off' }}">{{ latest.yahoo_sb or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">⚡</div><div class="sig-name">Zacks #1</div><div class="sig-val {{ 'sig-on' if latest.zacks == '✓' else 'sig-off' }}">{{ latest.zacks or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">⭐</div><div class="sig-name">Morningstar</div><div class="sig-val {{ 'sig-on' if latest.morningstar == '✓' else 'sig-off' }}">{{ latest.morningstar or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">👤</div><div class="sig-name">Insider Buy</div><div class="sig-val {{ 'sig-on' if latest.insider == '✓' else 'sig-off' }}">{{ latest.insider or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">📈</div><div class="sig-name">EPS Revision</div><div class="sig-val {{ 'sig-on' if latest.eps_rev == '✓' else 'sig-off' }}">{{ latest.eps_rev or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">🏆</div><div class="sig-name">Beats S&P</div><div class="sig-val {{ 'sig-on' if latest.beats_sp == '✓' else 'sig-off' }}">{{ latest.beats_sp or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">💰</div><div class="sig-name">Scan Price</div><div class="sig-val">${{ latest.price or '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">🎯</div><div class="sig-name">Upside</div><div class="sig-val {{ 'sig-on' if (latest.upside_pct or 0) >= 10 else '' }}">{{ latest.upside_pct or '–' }}%</div></div>
+      <div class="sig-card"><div class="sig-icon">📉</div><div class="sig-name">Short Interest</div><div class="sig-val">{{ latest.short_pct or '–' }}%</div></div>
+      <div class="sig-card"><div class="sig-icon">🔥</div><div class="sig-name">Vol Spike</div><div class="sig-val {{ 'sig-on' if latest.vol_spike == '1' else 'sig-off' }}">{{ '✓' if latest.vol_spike == '1' else '–' }}</div></div>
+      <div class="sig-card"><div class="sig-icon">📊</div><div class="sig-name">52w Position</div><div class="sig-val">{{ latest.week52_pos or '–' }}%</div></div>
+      <div class="sig-card"><div class="sig-icon">💎</div><div class="sig-name">Div Yield</div><div class="sig-val">{{ latest.div_yield or '–' }}%</div></div>
     </div>
   </div>
   {% endif %}
 
-  <!-- Full history table -->
   {% if history %}
   <div class="card">
     <div class="card-title">Full Scan History</div>
     <table>
-      <thead>
-        <tr>
-          <th>Date</th><th>Score</th><th>Sources</th>
-          <th>Yahoo</th><th>Zacks</th><th>MS</th>
-          <th>Insider</th><th>EPS Rev</th><th>Beats S&P</th>
-          <th>Price</th><th>Upside</th><th>Streak</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Date</th><th>Score</th><th>Sources</th><th>Yahoo</th><th>Zacks</th><th>MS</th><th>Insider</th><th>EPS Rev</th><th>Beats S&P</th><th>Price</th><th>Upside</th><th>Streak</th></tr></thead>
       <tbody>
         {% for row in history %}
         <tr>
           <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ row.scan_date }}</td>
-          <td>
-            <span class="score-pill {{ 'score-high' if row.score >= 70 else ('score-mid' if row.score >= 45 else 'score-low') }}">
-              {{ row.score|int }}
-            </span>
-          </td>
+          <td><span class="score-pill {{ 'score-high' if row.score >= 70 else ('score-mid' if row.score >= 45 else 'score-low') }}">{{ row.score|int }}</span></td>
           <td style="color:var(--muted);font-size:12px;">{{ row.sources or '–' }}</td>
           <td>{% if row.yahoo_sb == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
           <td>{% if row.zacks == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
@@ -333,122 +231,34 @@
     </table>
   </div>
   {% endif %}
-
 </main>
 
-<!-- ── TradingView Widget JS ── -->
 <script>
-  const TICKER = "{{ ticker }}";
-  let currentTf = '1M';
-
-  // Map our button labels to TradingView interval + range params
-  const TF_MAP = {
-    '1D': { interval: '5',   range: '1D'  },
-    '1W': { interval: '15',  range: '5D'  },
-    '1M': { interval: '60',  range: '1M'  },
-    '3M': { interval: 'D',   range: '3M'  },
-    '1Y': { interval: 'D',   range: '12M' },
-    '5Y': { interval: 'W',   range: '60M' },
-    'ALL': { interval: 'M',  range: 'ALL' },
-  };
-
-  function buildWidget(tf) {
-    const { interval, range } = TF_MAP[tf] || TF_MAP['1M'];
-    const container = document.getElementById('tv-widget-container');
-    container.innerHTML = '';   // clear old widget
-
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: TICKER,
-      interval: interval,
-      range: range,
-      timezone: "America/New_York",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      backgroundColor: "#111620",
-      gridColor: "rgba(30,37,53,0.8)",
-      hide_top_toolbar: false,
-      hide_legend: true,
-      save_image: false,
-      calendar: false,
-      hide_volume: false,
-      support_host: "https://www.tradingview.com"
-    });
-    container.appendChild(script);
-  }
-
-  function setTimeframe(tf) {
-    currentTf = tf;
-    // Update active button
-    document.querySelectorAll('.tf-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.textContent === tf);
-    });
-    buildWidget(tf);
-  }
-
-  // Load default on page ready
-  document.addEventListener('DOMContentLoaded', () => buildWidget('1M'));
+function toggleMobileMenu() {
+  document.getElementById('hamburger').classList.toggle('open');
+  document.getElementById('mobile-menu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const m = document.getElementById('mobile-menu'), h = document.getElementById('hamburger');
+  if (m && h && !m.contains(e.target) && !h.contains(e.target)) { m.classList.remove('open'); h.classList.remove('open'); }
+});
+const TICKER = "{{ ticker }}";
+const TF_MAP = {'1D':{interval:'5',range:'1D'},'1W':{interval:'15',range:'5D'},'1M':{interval:'60',range:'1M'},'3M':{interval:'D',range:'3M'},'1Y':{interval:'D',range:'12M'},'5Y':{interval:'W',range:'60M'},'ALL':{interval:'M',range:'ALL'}};
+function buildWidget(tf) {
+  const {interval,range}=TF_MAP[tf]||TF_MAP['1M'],c=document.getElementById('tv-widget-container');
+  c.innerHTML='';const s=document.createElement('script');s.type='text/javascript';
+  s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';s.async=true;
+  s.innerHTML=JSON.stringify({autosize:true,symbol:TICKER,interval,range,timezone:"America/New_York",theme:"dark",style:"1",locale:"en",backgroundColor:"#111620",gridColor:"rgba(30,37,53,0.8)",hide_top_toolbar:false,hide_legend:true,save_image:false,calendar:false,hide_volume:false,support_host:"https://www.tradingview.com"});
+  c.appendChild(s);
+}
+function setTimeframe(tf){document.querySelectorAll('.tf-btn').forEach(b=>b.classList.toggle('active',b.textContent===tf));buildWidget(tf);}
+document.addEventListener('DOMContentLoaded',()=>buildWidget('1M'));
 </script>
-
 {% if chart_dates %}
 <script>
-const ctx = document.getElementById('scoreChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: {{ chart_dates | tojson }},
-    datasets: [{
-      label: 'Consensus Score',
-      data: {{ chart_scores | tojson }},
-      borderColor: '#c9a84c',
-      backgroundColor: 'rgba(201,168,76,0.08)',
-      borderWidth: 2,
-      pointBackgroundColor: '#c9a84c',
-      pointRadius: 4,
-      tension: 0.3,
-      fill: true,
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: ctx => ' Score: ' + ctx.parsed.y
-        }
-      }
-    },
-    scales: {
-      y: {
-        min: 0, max: 100,
-        ticks: { color: '#6b7280', font: { size: 11 } },
-        grid: { color: 'rgba(107,114,128,0.15)' }
-      },
-      x: {
-        ticks: { color: '#6b7280', font: { size: 11 }, maxRotation: 30 },
-        grid: { display: false }
-      }
-    }
-  }
-});
+new Chart(document.getElementById('scoreChart').getContext('2d'),{type:'line',data:{labels:{{ chart_dates|tojson }},datasets:[{label:'Score',data:{{ chart_scores|tojson }},borderColor:'#c9a84c',backgroundColor:'rgba(201,168,76,0.08)',borderWidth:2,pointBackgroundColor:'#c9a84c',pointRadius:4,tension:0.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#6b7280',font:{size:11}},grid:{color:'rgba(107,114,128,0.15)'}},x:{ticks:{color:'#6b7280',font:{size:11},maxRotation:30},grid:{display:false}}}}});
 </script>
 {% endif %}
-
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/static/sw.js')
-        .then(r => console.log('SW registered'))
-        .catch(e => console.log('SW failed:', e));
-    });
-  }
-</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');</script>
 </body>
 </html>
