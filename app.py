@@ -165,11 +165,11 @@ def dashboard():
 
     ai_brief = None
     try:
-        brief_row = conn.execute(
-            "SELECT brief FROM market_conditions WHERE scan_date = ?", (latest_date,)
-        ).fetchone()
-        if brief_row and brief_row.get("brief"):
-            ai_brief = brief_row["brief"]
+      brief_row = conn.execute(
+    "SELECT ai_brief FROM market_conditions WHERE scan_date = ?", (latest_date,)
+).fetchone()
+if brief_row and brief_row["ai_brief"]:
+    ai_brief = brief_row["ai_brief"]
     except Exception:
         pass
 
