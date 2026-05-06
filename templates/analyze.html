@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- PWA -->
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#c9a84c">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,268 +13,180 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0b0e14; --surf: #111620; --surf2: #161c2a;
-      --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
-      --text: #e8eaf0; --muted: #6b7280;
-      --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
-    }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --nav-h: 56px; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
-    body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
-      background-size: 40px 40px; pointer-events: none;
-    }
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 32px; height: 60px;
-    }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
-    .nav-links { display: flex; gap: 8px; align-items: center; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
-    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
     .nav-links a.logout { color: var(--red); }
-
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .hamburger { display: flex; } .nav-links { display: none; } main { padding: 16px; } }
     main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
-
     .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
     .page-sub   { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
-
-    /* Search bar */
-    .search-row {
-      display: flex; gap: 12px; margin-bottom: 32px;
-    }
-    .search-row input {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 10px; padding: 14px 20px;
-      color: var(--text); font-family: 'DM Mono', monospace;
-      font-size: 20px; text-transform: uppercase;
-      outline: none; transition: border-color 0.2s;
-      width: 180px; letter-spacing: 0.15em;
-    }
+    .search-row { display: flex; gap: 12px; margin-bottom: 32px; }
+    .search-row input { background: var(--surf); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 20px; text-transform: uppercase; outline: none; transition: border-color 0.2s; width: 180px; letter-spacing: 0.15em; }
     .search-row input:focus { border-color: var(--gold); }
     .search-row input::placeholder { color: var(--muted); font-size: 14px; letter-spacing: 0; text-transform: none; }
-    .search-row button {
-      background: linear-gradient(135deg, var(--gold), var(--gold2));
-      color: #0b0e14; border: none; border-radius: 10px;
-      padding: 14px 28px; font-size: 14px; font-weight: 600;
-      cursor: pointer; transition: opacity 0.2s; white-space: nowrap;
-    }
-    .search-row button:hover   { opacity: 0.85; }
+    .search-row button { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; border: none; border-radius: 10px; padding: 14px 28px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+    .search-row button:hover { opacity: 0.85; }
     .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* Loading */
     #loading { display: none; text-align: center; padding: 48px; }
-    .spinner {
-      width: 44px; height: 44px; border-radius: 50%;
-      border: 3px solid var(--border); border-top-color: var(--gold);
-      animation: spin 1s linear infinite; margin: 0 auto 16px;
-    }
+    .spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--gold); animation: spin 1s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { color: var(--muted); font-size: 14px; }
-
-    /* Results */
     #results { display: none; }
-
-    /* Header card */
-    .header-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 14px; padding: 24px 28px;
-      display: flex; gap: 24px; align-items: flex-start;
-      margin-bottom: 20px; flex-wrap: wrap;
-    }
+    .header-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; display: flex; gap: 24px; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; }
     .header-left { flex: 1; }
     .stock-ticker { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; color: var(--gold); }
     .stock-name   { color: var(--muted); font-size: 14px; margin-top: 4px; }
     .stock-sector { font-size: 12px; margin-top: 6px; }
-    .sector-tag {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 4px; padding: 3px 10px; font-size: 11px; color: var(--muted);
-    }
+    .sector-tag { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
     .price-block { text-align: right; }
     .price-big { font-family: 'DM Mono', monospace; font-size: 36px; font-weight: 500; }
     .price-chg  { font-size: 13px; margin-top: 4px; }
-    .up   { color: var(--green); }
-    .down { color: var(--red); }
-
-    /* Risk meter */
-    .risk-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 14px; padding: 24px 28px; margin-bottom: 20px;
-    }
+    .up { color: var(--green); } .down { color: var(--red); }
+    .risk-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
     .risk-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 16px; }
-    .risk-meter {
-      position: relative; height: 12px;
-      background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
-      border-radius: 6px; margin-bottom: 12px;
-    }
-    .risk-needle {
-      position: absolute; top: -4px;
-      width: 20px; height: 20px; border-radius: 50%;
-      background: white; border: 3px solid var(--bg);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-      transform: translateX(-50%);
-      transition: left 1s ease;
-    }
+    .risk-meter { position: relative; height: 12px; background: linear-gradient(90deg, var(--green), var(--yellow), var(--red)); border-radius: 6px; margin-bottom: 12px; }
+    .risk-needle { position: absolute; top: -4px; width: 20px; height: 20px; border-radius: 50%; background: white; border: 3px solid var(--bg); box-shadow: 0 2px 8px rgba(0,0,0,0.5); transform: translateX(-50%); transition: left 1s ease; }
     .risk-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-    .risk-rating {
-      display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap;
-    }
-    .risk-badge {
-      font-size: 18px; font-weight: 600; padding: 8px 20px;
-      border-radius: 8px; font-family: 'DM Mono', monospace;
-    }
-    .risk-low    { background: rgba(74,222,128,0.1);  color: var(--green); border: 1px solid rgba(74,222,128,0.25); }
-    .risk-medium { background: rgba(251,191,36,0.1);  color: var(--yellow); border: 1px solid rgba(251,191,36,0.25); }
-    .risk-high   { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
-    .risk-very-high { background: rgba(248,113,113,0.2); color: var(--red); border: 2px solid rgba(248,113,113,0.4); }
-    .risk-summary { font-size: 13px; color: var(--muted); line-height: 1.6; flex: 1; }
-
-    /* Metrics grid */
-    .metrics-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px; margin-bottom: 20px;
-    }
-    .metric-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 10px; padding: 14px 16px;
-    }
+    .risk-rating { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+    .risk-badge { font-size: 18px; font-weight: 600; padding: 8px 20px; border-radius: 8px; font-family: 'DM Mono', monospace; }
+    .risk-low      { background: rgba(74,222,128,0.1);  color: var(--green); border: 1px solid rgba(74,222,128,0.25); }
+    .risk-medium   { background: rgba(251,191,36,0.1);  color: var(--yellow); border: 1px solid rgba(251,191,36,0.25); }
+    .risk-high     { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
+    .risk-very-high{ background: rgba(248,113,113,0.2); color: var(--red); border: 2px solid rgba(248,113,113,0.4); }
+    .risk-summary  { font-size: 13px; color: var(--muted); line-height: 1.6; flex: 1; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .metric-card { background: var(--surf); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
     .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
     .metric-value { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; }
     .metric-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
-    .metric-good  { color: var(--green); }
-    .metric-warn  { color: var(--yellow); }
-    .metric-bad   { color: var(--red); }
-
-    /* Signal bars */
-    .signals-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 14px; padding: 24px 28px; margin-bottom: 20px;
-    }
-    .signal-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 0; border-bottom: 1px solid var(--border);
-    }
+    .metric-good  { color: var(--green); } .metric-warn { color: var(--yellow); } .metric-bad { color: var(--red); }
+    .signals-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
+    .signal-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .signal-row:last-child { border-bottom: none; }
-    .signal-icon  { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
-    .signal-name  { font-size: 13px; font-weight: 500; flex: 1; }
+    .signal-icon { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+    .signal-name { font-size: 13px; font-weight: 500; flex: 1; }
     .signal-value { font-size: 12px; color: var(--muted); width: 80px; text-align: right; }
     .signal-bar-wrap { width: 120px; flex-shrink: 0; }
     .signal-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .signal-bar-fill  { height: 100%; border-radius: 3px; transition: width 1s ease; }
-    .bar-green  { background: var(--green); }
-    .bar-yellow { background: var(--yellow); }
-    .bar-red    { background: var(--red); }
-    .bar-blue   { background: var(--blue); }
-
-    /* AI analysis */
-    .ai-card {
-      background: var(--surf); border: 1px solid var(--border);
-      border-radius: 14px; padding: 24px 28px; margin-bottom: 20px;
-    }
+    .bar-green { background: var(--green); } .bar-yellow { background: var(--yellow); } .bar-red { background: var(--red); }
+    .ai-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; }
     .ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
     .ai-label  { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-    .ai-badge  {
-      font-size: 10px; padding: 2px 8px; border-radius: 4px;
-      background: rgba(167,139,250,0.15); color: #a78bfa;
-      font-weight: 600; letter-spacing: 0.05em;
-    }
+    .ai-badge  { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: rgba(167,139,250,0.15); color: #a78bfa; font-weight: 600; letter-spacing: 0.05em; }
     #ai-text { font-size: 14px; line-height: 1.8; color: var(--text); }
     #ai-text p { margin-bottom: 12px; }
     #ai-text p:last-child { margin-bottom: 0; }
     .ai-cursor { display: inline-block; width: 2px; height: 14px; background: var(--gold); animation: blink 1s infinite; vertical-align: middle; }
-    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-    /* Empty state */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
     #empty-state { text-align: center; padding: 64px 32px; color: var(--muted); }
     #empty-state .big { font-size: 52px; margin-bottom: 16px; }
     #empty-state p { font-size: 14px; line-height: 1.6; }
-
-    @media (max-width: 600px) {
-      main { padding: 16px; }
-      nav  { padding: 0 16px; }
-      .search-row input { width: 120px; }
-      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-    }
+    @media (max-width: 600px) { main { padding: 16px; } .search-row input { width: 120px; } .metrics-grid { grid-template-columns: repeat(2,1fr); } }
   </style>
 </head>
 <body>
 <nav>
-  <div class="nav-logo">📈 Convergence</div>
-      <div class="nav-links">
+  <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
+  <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
     <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
     <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
-    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('analyze') }}" class="active">Analyze</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
-
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}" class="active">🔬 Analyze</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
 <main>
   <div class="page-title">🔬 Stock Analyzer</div>
   <p class="page-sub">Type any ticker for a full breakdown — financials, risk rating, signals, and AI summary.</p>
-
   <div class="search-row">
     <input type="text" id="ticker-input" placeholder="e.g. AAPL" maxlength="5" autofocus>
     <button id="analyze-btn" onclick="analyze()">Analyze Stock →</button>
   </div>
-
-  <div id="loading">
-    <div class="spinner"></div>
-    <p id="loading-msg">Fetching data...</p>
-  </div>
-
-  <div id="empty-state">
-    <div class="big">🔬</div>
-    <p>Enter any stock ticker above.<br>We'll pull the full financials, calculate a risk rating,<br>and generate an AI summary in seconds.</p>
-  </div>
-
+  <div id="loading"><div class="spinner"></div><p id="loading-msg">Fetching data...</p></div>
+  <div id="empty-state"><div class="big">🔬</div><p>Enter any stock ticker above.<br>We'll pull the full financials, calculate a risk rating,<br>and generate an AI summary in seconds.</p></div>
   <div id="results"></div>
 </main>
-
 <script>
+function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+
+// Check for ticker in URL params (from stock detail page "Full AI Analysis" button)
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const ticker = params.get('ticker');
+  if (ticker) {
+    document.getElementById('ticker-input').value = ticker;
+    analyze();
+  }
+});
+
 async function analyze() {
   const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
   if (!ticker) return;
-
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('results').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('analyze-btn').disabled = true;
-
-  const msgs = [
-    'Fetching financials...', 'Calculating risk score...',
-    'Checking analyst signals...', 'Running AI analysis...'
-  ];
+  const msgs = ['Fetching financials...','Calculating risk score...','Checking analyst signals...','Running AI analysis...'];
   let mi = 0;
-  const msgInterval = setInterval(() => {
-    document.getElementById('loading-msg').textContent = msgs[mi % msgs.length];
-    mi++;
-  }, 2000);
-
+  const msgInterval = setInterval(() => { document.getElementById('loading-msg').textContent = msgs[mi%msgs.length]; mi++; }, 2000);
   try {
     const res  = await fetch(`/api/analyze/${ticker}`);
     const data = await res.json();
     clearInterval(msgInterval);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('analyze-btn').disabled = false;
-
     if (data.error) {
       document.getElementById('empty-state').style.display = 'block';
       document.getElementById('empty-state').querySelector('p').textContent = `Could not find data for "${ticker}". Check the ticker and try again.`;
       return;
     }
-
     renderResults(ticker, data);
   } catch(e) {
     clearInterval(msgInterval);
@@ -288,291 +199,80 @@ async function analyze() {
 function renderResults(ticker, d) {
   const wrap = document.getElementById('results');
   wrap.style.display = 'block';
+  const risk = d.risk_score;
+  const riskLabel = risk<=25?'Low Risk':risk<=50?'Medium Risk':risk<=75?'High Risk':'Very High Risk';
+  const riskClass = risk<=25?'risk-low':risk<=50?'risk-medium':risk<=75?'risk-high':'risk-very-high';
+  const priceChg = d.price_change_pct;
+  const chgClass = priceChg>=0?'up':'down';
+  const chgArrow = priceChg>=0?'▲':'▼';
+  function metricColor(val,goodThresh,badThresh,higherIsBetter=true){if(val===null||val===undefined)return '';if(higherIsBetter)return val>=goodThresh?'metric-good':val>=badThresh?'metric-warn':'metric-bad';return val<=goodThresh?'metric-good':val<=badThresh?'metric-warn':'metric-bad';}
+  function fmt(val,prefix='',suffix='',decimals=1){if(val===null||val===undefined)return '–';return `${prefix}${Number(val).toFixed(decimals)}${suffix}`;}
 
-  const risk       = d.risk_score;
-  const riskLabel  = risk <= 25 ? 'Low Risk' : risk <= 50 ? 'Medium Risk' : risk <= 75 ? 'High Risk' : 'Very High Risk';
-  const riskClass  = risk <= 25 ? 'risk-low' : risk <= 50 ? 'risk-medium' : risk <= 75 ? 'risk-high' : 'risk-very-high';
-  const priceChg   = d.price_change_pct;
-  const chgClass   = priceChg >= 0 ? 'up' : 'down';
-  const chgArrow   = priceChg >= 0 ? '▲' : '▼';
-
-  function metricColor(val, goodThresh, badThresh, higherIsBetter = true) {
-    if (val === null || val === undefined) return '';
-    if (higherIsBetter) return val >= goodThresh ? 'metric-good' : val >= badThresh ? 'metric-warn' : 'metric-bad';
-    return val <= goodThresh ? 'metric-good' : val <= badThresh ? 'metric-warn' : 'metric-bad';
-  }
-
-  function fmt(val, prefix='', suffix='', decimals=1) {
-    if (val === null || val === undefined) return '–';
-    return `${prefix}${Number(val).toFixed(decimals)}${suffix}`;
-  }
+  // Smart buy badge
+  const sb = d.smart_buy;
+  const sbHtml = sb ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;background:${sb.rating==='strong_buy'||sb.rating==='buy'?'rgba(74,222,128,0.1)':sb.rating==='avoid'?'rgba(248,113,113,0.1)':'rgba(251,191,36,0.1)'};color:${sb.rating==='strong_buy'||sb.rating==='buy'?'var(--green)':sb.rating==='avoid'?'var(--red)':'var(--yellow)'};border:1px solid ${sb.rating==='strong_buy'||sb.rating==='buy'?'rgba(74,222,128,0.3)':sb.rating==='avoid'?'rgba(248,113,113,0.3)':'rgba(251,191,36,0.3)'};">${sb.emoji} ${sb.label}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;">— ${sb.reason}</span></div>` : '';
 
   wrap.innerHTML = `
-    <!-- Header -->
     <div class="header-card">
       <div class="header-left">
         <div class="stock-ticker">${ticker}</div>
-        <div class="stock-name">${d.name || ''}</div>
-        <div class="stock-sector"><span class="sector-tag">${d.sector || 'Unknown'}</span> <span class="sector-tag">${d.industry || ''}</span></div>
+        <div class="stock-name">${d.name||''}</div>
+        <div class="stock-sector"><span class="sector-tag">${d.sector||'Unknown'}</span> <span class="sector-tag">${d.industry||''}</span></div>
+        ${sbHtml}
       </div>
       <div class="price-block">
-        <div class="price-big">$${fmt(d.price, '', '', 2)}</div>
-        <div class="price-chg ${chgClass}">${chgArrow} ${fmt(Math.abs(priceChg), '', '%')} today</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Target: $${fmt(d.price_target, '', '', 2)} (${fmt(d.upside, '', '%')} upside)</div>
+        <div class="price-big">$${fmt(d.price,'','',2)}</div>
+        <div class="price-chg ${chgClass}">${chgArrow} ${fmt(Math.abs(priceChg),'','%')} today</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Target: $${fmt(d.price_target,'','',2)} (${fmt(d.upside,'','%')} upside)</div>
       </div>
     </div>
-
-    <!-- Risk meter -->
     <div class="risk-card">
       <div class="risk-title">Risk Assessment</div>
-      <div class="risk-meter">
-        <div class="risk-needle" id="risk-needle" style="left:${risk}%"></div>
-      </div>
+      <div class="risk-meter"><div class="risk-needle" id="risk-needle" style="left:${risk}%"></div></div>
       <div class="risk-labels"><span>Low</span><span>Medium</span><span>High</span><span>Very High</span></div>
-      <div class="risk-rating">
-        <span class="risk-badge ${riskClass}">${riskLabel} · ${risk}/100</span>
-        <div class="risk-summary">${d.risk_summary}</div>
-      </div>
+      <div class="risk-rating"><span class="risk-badge ${riskClass}">${riskLabel} · ${risk}/100</span><div class="risk-summary">${d.risk_summary}</div></div>
     </div>
-
-    <!-- Metrics -->
     <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">P/E Ratio</div>
-        <div class="metric-value ${metricColor(d.pe, 25, 40, false)}">${fmt(d.pe, '', 'x')}</div>
-        <div class="metric-sub">Forward: ${fmt(d.forward_pe, '', 'x')}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Revenue Growth</div>
-        <div class="metric-value ${metricColor(d.revenue_growth, 10, 0)}">${fmt(d.revenue_growth, '', '%')}</div>
-        <div class="metric-sub">Year over year</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Profit Margin</div>
-        <div class="metric-value ${metricColor(d.profit_margin, 15, 5)}">${fmt(d.profit_margin, '', '%')}</div>
-        <div class="metric-sub">Net margin</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Return on Equity</div>
-        <div class="metric-value ${metricColor(d.roe, 15, 8)}">${fmt(d.roe, '', '%')}</div>
-        <div class="metric-sub">ROE</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Debt / Equity</div>
-        <div class="metric-value ${metricColor(d.debt_equity, 0.5, 1.5, false)}">${fmt(d.debt_equity, '', 'x')}</div>
-        <div class="metric-sub">Lower = safer</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Beta</div>
-        <div class="metric-value ${metricColor(d.beta, 1.2, 1.8, false)}">${fmt(d.beta, '', 'x')}</div>
-        <div class="metric-sub">Market sensitivity</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Dividend Yield</div>
-        <div class="metric-value ${d.div_yield > 0 ? 'metric-good' : ''}">${fmt(d.div_yield, '', '%')}</div>
-        <div class="metric-sub">${d.div_yield > 0 ? 'Pays dividend' : 'No dividend'}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">52w Position</div>
-        <div class="metric-value">${fmt(d.week52_pos, '', '%')}</div>
-        <div class="metric-sub">0%=low 100%=high</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Short Interest</div>
-        <div class="metric-value ${metricColor(d.short_pct, 5, 15, false)}">${fmt(d.short_pct, '', '%')}</div>
-        <div class="metric-sub">% of float shorted</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Analysts</div>
-        <div class="metric-value">${d.num_analysts || '–'}</div>
-        <div class="metric-sub">Covering this stock</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Mkt Cap</div>
-        <div class="metric-value">${d.mkt_cap_label || '–'}</div>
-        <div class="metric-sub">${d.mkt_cap_tier || ''}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Volume</div>
-        <div class="metric-value ${d.vol_spike ? 'metric-warn' : ''}">${d.vol_spike ? '🔥 Spike' : 'Normal'}</div>
-        <div class="metric-sub">${fmt(d.vol_ratio, '', 'x avg')}</div>
-      </div>
+      <div class="metric-card"><div class="metric-label">P/E Ratio</div><div class="metric-value ${metricColor(d.pe,25,40,false)}">${fmt(d.pe,'','x')}</div><div class="metric-sub">Forward: ${fmt(d.forward_pe,'','x')}</div></div>
+      <div class="metric-card"><div class="metric-label">Revenue Growth</div><div class="metric-value ${metricColor(d.revenue_growth,10,0)}">${fmt(d.revenue_growth,'','%')}</div><div class="metric-sub">Year over year</div></div>
+      <div class="metric-card"><div class="metric-label">Profit Margin</div><div class="metric-value ${metricColor(d.profit_margin,15,5)}">${fmt(d.profit_margin,'','%')}</div><div class="metric-sub">Net margin</div></div>
+      <div class="metric-card"><div class="metric-label">Return on Equity</div><div class="metric-value ${metricColor(d.roe,15,8)}">${fmt(d.roe,'','%')}</div><div class="metric-sub">ROE</div></div>
+      <div class="metric-card"><div class="metric-label">Debt / Equity</div><div class="metric-value ${metricColor(d.debt_equity,0.5,1.5,false)}">${fmt(d.debt_equity,'','x')}</div><div class="metric-sub">Lower = safer</div></div>
+      <div class="metric-card"><div class="metric-label">Beta</div><div class="metric-value ${metricColor(d.beta,1.2,1.8,false)}">${fmt(d.beta,'','x')}</div><div class="metric-sub">Market sensitivity</div></div>
+      <div class="metric-card"><div class="metric-label">Dividend Yield</div><div class="metric-value ${d.div_yield>0?'metric-good':''}">${fmt(d.div_yield,'','%')}</div><div class="metric-sub">${d.div_yield>0?'Pays dividend':'No dividend'}</div></div>
+      <div class="metric-card"><div class="metric-label">52w Position</div><div class="metric-value">${fmt(d.week52_pos,'','%')}</div><div class="metric-sub">0%=low 100%=high</div></div>
+      <div class="metric-card"><div class="metric-label">Short Interest</div><div class="metric-value ${metricColor(d.short_pct,5,15,false)}">${fmt(d.short_pct,'','%')}</div><div class="metric-sub">% of float shorted</div></div>
+      <div class="metric-card"><div class="metric-label">Analysts</div><div class="metric-value">${d.num_analysts||'–'}</div><div class="metric-sub">Covering this stock</div></div>
+      <div class="metric-card"><div class="metric-label">Mkt Cap</div><div class="metric-value">${d.mkt_cap_label||'–'}</div><div class="metric-sub">${d.mkt_cap_tier||''}</div></div>
+      <div class="metric-card"><div class="metric-label">Volume</div><div class="metric-value ${d.vol_spike?'metric-warn':''}">${d.vol_spike?'🔥 Spike':'Normal'}</div><div class="metric-sub">${fmt(d.vol_ratio,'','x avg')}</div></div>
     </div>
-
-    <!-- Signals -->
     <div class="signals-card">
       <div class="risk-title" style="margin-bottom:8px;">Signal Breakdown</div>
-      ${renderSignal('📊', 'Analyst Consensus', d.analyst_score, 100, d.analyst_label)}
-      ${renderSignal('📈', 'Valuation', d.valuation_score, 100, d.valuation_label)}
-      ${renderSignal('💰', 'Profitability', d.profit_score, 100, d.profit_label)}
-      ${renderSignal('🛡️', 'Financial Health', d.health_score, 100, d.health_label)}
-      ${renderSignal('⚡', 'Momentum', d.momentum_score, 100, d.momentum_label)}
-      ${renderSignal('⚠️', 'Risk Level', 100 - d.risk_score, 100, riskLabel)}
+      ${renderSignal('📊','Analyst Consensus',d.analyst_score,100,d.analyst_label)}
+      ${renderSignal('📈','Valuation',d.valuation_score,100,d.valuation_label)}
+      ${renderSignal('💰','Profitability',d.profit_score,100,d.profit_label)}
+      ${renderSignal('🛡️','Financial Health',d.health_score,100,d.health_label)}
+      ${renderSignal('⚡','Momentum',d.momentum_score,100,d.momentum_label)}
+      ${renderSignal('⚠️','Risk Level',100-d.risk_score,100,riskLabel)}
     </div>
+    <div class="ai-card" id="sentiment-card" style="display:none;"><div class="ai-header"><div class="ai-label">News Sentiment</div><span id="sentiment-badge" class="ai-badge">LOADING</span></div><div id="sentiment-headlines" style="display:flex;flex-direction:column;gap:8px;"></div></div>
+    <div class="ai-card" id="options-card" style="display:none;"><div class="ai-header"><div class="ai-label">Options Flow</div><span id="options-badge" class="ai-badge">LOADING</span></div><div id="options-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div></div>
+    <div class="ai-card" id="inst-card" style="display:none;"><div class="ai-header"><div class="ai-label">Institutional Ownership</div><span id="inst-badge" class="ai-badge">LOADING</span></div><div id="inst-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div></div>
+    <div class="ai-card"><div class="ai-header"><div class="ai-label">AI Analysis</div><span class="ai-badge">CLAUDE AI</span></div><div id="ai-text"><span class="ai-cursor"></span></div></div>`;
 
-    <!-- News Sentiment -->
-    <div class="ai-card" id="sentiment-card" style="display:none;">
-      <div class="ai-header">
-        <div class="ai-label">News Sentiment</div>
-        <span id="sentiment-badge" class="ai-badge">LOADING</span>
-      </div>
-      <div id="sentiment-headlines" style="display:flex;flex-direction:column;gap:8px;"></div>
-    </div>
-
-    <!-- Options Flow -->
-    <div class="ai-card" id="options-card" style="display:none;">
-      <div class="ai-header">
-        <div class="ai-label">Options Flow</div>
-        <span id="options-badge" class="ai-badge">LOADING</span>
-      </div>
-      <div id="options-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
-    </div>
-
-    <!-- Institutional -->
-    <div class="ai-card" id="inst-card" style="display:none;">
-      <div class="ai-header">
-        <div class="ai-label">Institutional Ownership</div>
-        <span id="inst-badge" class="ai-badge">LOADING</span>
-      </div>
-      <div id="inst-detail" style="font-size:13px;color:var(--muted);line-height:1.6;"></div>
-    </div>
-
-    <!-- AI Analysis -->
-    <div class="ai-card">
-      <div class="ai-header">
-        <div class="ai-label">AI Analysis</div>
-        <span class="ai-badge">CLAUDE AI</span>
-      </div>
-      <div id="ai-text"><span class="ai-cursor"></span></div>
-    </div>
-  `;
-
-  // Stream AI text
   streamText('ai-text', d.ai_analysis);
-
-  // Fetch sentiment, options, institutional in parallel
   fetchSentiment(ticker);
   fetchOptions(ticker);
   fetchInstitutional(ticker);
 }
 
-async function fetchSentiment(ticker) {
-  try {
-    const res  = await fetch(`/api/sentiment/${ticker}`);
-    const data = await res.json();
-    const card = document.getElementById('sentiment-card');
-    const badge = document.getElementById('sentiment-badge');
-    card.style.display = 'block';
-    const color = data.label === 'Positive' ? '#4ade80' : (data.label === 'Negative' ? '#f87171' : '#fbbf24');
-    badge.textContent = data.label;
-    badge.style.background = color + '22';
-    badge.style.color = color;
-    const hl = document.getElementById('sentiment-headlines');
-    if (data.headlines && data.headlines.length > 0) {
-      hl.innerHTML = data.headlines.map(h =>
-        `<div style="padding:8px 12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
-          <div style="font-size:13px;line-height:1.5;">${h.title}</div>
-          <div style="font-size:11px;color:${h.score > 0 ? '#4ade80' : (h.score < 0 ? '#f87171' : '#6b7280')};margin-top:4px;">
-            ${h.score > 0 ? '▲ Positive' : (h.score < 0 ? '▼ Negative' : '● Neutral')}
-          </div>
-        </div>`
-      ).join('');
-    } else {
-      hl.innerHTML = '<p style="color:var(--muted);font-size:13px;">No recent news found.</p>';
-    }
-  } catch(e) { console.log('Sentiment error:', e); }
-}
-
-async function fetchOptions(ticker) {
-  try {
-    const res  = await fetch(`/api/options/${ticker}`);
-    const data = await res.json();
-    const card = document.getElementById('options-card');
-    card.style.display = 'block';
-    const badge = document.getElementById('options-badge');
-    const color = data.sentiment === 'Bullish' ? '#4ade80' : (data.sentiment === 'Bearish' ? '#f87171' : '#fbbf24');
-    badge.textContent = data.sentiment || 'Neutral';
-    badge.style.background = color + '22';
-    badge.style.color = color;
-    const detail = document.getElementById('options-detail');
-    detail.innerHTML = data.volume
-      ? `Total options volume: <strong>${data.volume?.toLocaleString()}</strong> · Put/Call ratio: <strong>${data.pc_ratio}</strong> · Signal: <strong style="color:${color}">${data.sentiment}</strong>`
-      : `Options data: <strong>${data.sentiment || 'Neutral'}</strong> signal detected.`;
-  } catch(e) { console.log('Options error:', e); }
-}
-
-async function fetchInstitutional(ticker) {
-  try {
-    const res  = await fetch(`/api/institutional/${ticker}`);
-    const data = await res.json();
-    const card = document.getElementById('inst-card');
-    card.style.display = 'block';
-    const badge = document.getElementById('inst-badge');
-    badge.textContent = data.label || 'n/a';
-    const detail = document.getElementById('inst-detail');
-    detail.innerHTML = `Institutional ownership: <strong>${data.inst_pct}%</strong> of float · Trend: <strong style="color:${data.increasing ? '#4ade80' : '#f87171'}">${data.increasing ? '▲ Increasing' : '▼ Decreasing'}</strong>`;
-  } catch(e) { console.log('Institutional error:', e); }
-}
-
-function renderSignal(icon, name, score, max, label) {
-  const pct   = Math.min(100, Math.round(score / max * 100));
-  const color = pct >= 65 ? 'bar-green' : pct >= 40 ? 'bar-yellow' : 'bar-red';
-  return `
-    <div class="signal-row">
-      <div class="signal-icon">${icon}</div>
-      <div class="signal-name">${name}</div>
-      <div class="signal-bar-wrap">
-        <div class="signal-bar-track">
-          <div class="signal-bar-fill ${color}" style="width:${pct}%"></div>
-        </div>
-      </div>
-      <div class="signal-value">${label || pct + '%'}</div>
-    </div>`;
-}
-
-function streamText(elId, text) {
-  const el = document.getElementById(elId);
-  el.innerHTML = '';
-  if (!text) { el.textContent = 'Analysis unavailable.'; return; }
-
-  // Split into paragraphs and stream word by word
-  const paragraphs = text.split('\n\n').filter(p => p.trim());
-  let pIdx = 0, wIdx = 0;
-  const words = paragraphs.map(p => p.split(' '));
-  let allWords = [];
-  paragraphs.forEach((p, i) => {
-    p.split(' ').forEach(w => allWords.push({ word: w, para: i }));
-  });
-
-  let curPara = -1;
-  let curEl   = null;
-  let i       = 0;
-
-  const interval = setInterval(() => {
-    if (i >= allWords.length) { clearInterval(interval); return; }
-    const { word, para } = allWords[i];
-    if (para !== curPara) {
-      curEl   = document.createElement('p');
-      curPara = para;
-      el.appendChild(curEl);
-    }
-    curEl.textContent += (curEl.textContent ? ' ' : '') + word;
-    i++;
-  }, 30);
-}
-
-document.getElementById('ticker-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') analyze();
-});
+async function fetchSentiment(ticker){try{const res=await fetch(`/api/sentiment/${ticker}`);const data=await res.json();const card=document.getElementById('sentiment-card');const badge=document.getElementById('sentiment-badge');card.style.display='block';const color=data.label==='Positive'?'#4ade80':(data.label==='Negative'?'#f87171':'#fbbf24');badge.textContent=data.label;badge.style.background=color+'22';badge.style.color=color;const hl=document.getElementById('sentiment-headlines');if(data.headlines&&data.headlines.length>0){hl.innerHTML=data.headlines.map(h=>`<div style="padding:8px 12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);"><div style="font-size:13px;line-height:1.5;">${h.title}</div><div style="font-size:11px;color:${h.score>0?'#4ade80':(h.score<0?'#f87171':'#6b7280')};margin-top:4px;">${h.score>0?'▲ Positive':(h.score<0?'▼ Negative':'● Neutral')}</div></div>`).join('');}else{hl.innerHTML='<p style="color:var(--muted);font-size:13px;">No recent news found.</p>';}}catch(e){}}
+async function fetchOptions(ticker){try{const res=await fetch(`/api/options/${ticker}`);const data=await res.json();const card=document.getElementById('options-card');card.style.display='block';const badge=document.getElementById('options-badge');const color=data.sentiment==='Bullish'?'#4ade80':(data.sentiment==='Bearish'?'#f87171':'#fbbf24');badge.textContent=data.sentiment||'Neutral';badge.style.background=color+'22';badge.style.color=color;document.getElementById('options-detail').innerHTML=data.volume?`Total options volume: <strong>${data.volume?.toLocaleString()}</strong> · P/C ratio: <strong>${data.pc_ratio}</strong> · Signal: <strong style="color:${color}">${data.sentiment}</strong>`:`Options: <strong>${data.sentiment||'Neutral'}</strong> signal.`;}catch(e){}}
+async function fetchInstitutional(ticker){try{const res=await fetch(`/api/institutional/${ticker}`);const data=await res.json();const card=document.getElementById('inst-card');card.style.display='block';document.getElementById('inst-badge').textContent=data.label||'n/a';document.getElementById('inst-detail').innerHTML=`Institutional: <strong>${data.inst_pct}%</strong> · <strong style="color:${data.increasing?'#4ade80':'#f87171'}">${data.increasing?'▲ Increasing':'▼ Decreasing'}</strong>`;}catch(e){}}
+function renderSignal(icon,name,score,max,label){const pct=Math.min(100,Math.round(score/max*100));const color=pct>=65?'bar-green':pct>=40?'bar-yellow':'bar-red';return `<div class="signal-row"><div class="signal-icon">${icon}</div><div class="signal-name">${name}</div><div class="signal-bar-wrap"><div class="signal-bar-track"><div class="signal-bar-fill ${color}" style="width:${pct}%"></div></div></div><div class="signal-value">${label||pct+'%'}</div></div>`;}
+function streamText(elId,text){const el=document.getElementById(elId);el.innerHTML='';if(!text){el.textContent='Analysis unavailable.';return;}const paragraphs=text.split('\n\n').filter(p=>p.trim());let allWords=[];paragraphs.forEach((p,i)=>{p.split(' ').forEach(w=>allWords.push({word:w,para:i}));});let curPara=-1,curEl=null,i=0;const interval=setInterval(()=>{if(i>=allWords.length){clearInterval(interval);return;}const{word,para}=allWords[i];if(para!==curPara){curEl=document.createElement('p');curPara=para;el.appendChild(curEl);}curEl.textContent+=(curEl.textContent?' ':'')+word;i++;},30);}
+document.getElementById('ticker-input').addEventListener('keydown',e=>{if(e.key==='Enter')analyze();});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
 </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-          .then(r => console.log('SW registered'))
-          .catch(e => console.log('SW failed:', e));
-      });
-    }
-  </script>
 </body>
 </html>
