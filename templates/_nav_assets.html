@@ -1,0 +1,220 @@
+<!-- ── UNIVERSAL NAV STYLES — paste inside <style> or include in <head> ── -->
+<style id="nav-styles">
+  :root { --nav-h: 56px; }
+
+  /* Nav shell */
+  nav {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(11,14,20,0.95); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    height: var(--nav-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; gap: 12px;
+  }
+  .nav-logo {
+    font-family: 'DM Serif Display', serif; font-size: 17px;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Desktop links */
+  .nav-links {
+    display: flex; gap: 2px; align-items: center;
+    overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none;
+    padding: 5px 9px; border-radius: 6px;
+    font-size: 12px; font-weight: 500;
+    transition: color 0.15s, background 0.15s; white-space: nowrap;
+  }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
+  .nav-links a.logout { color: var(--red); }
+
+  /* Hamburger — ALWAYS visible */
+  .hamburger {
+    display: flex; flex-direction: column; gap: 4px;
+    cursor: pointer; padding: 6px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surf); flex-shrink: 0;
+  }
+  .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+  .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+  .hamburger.open span:nth-child(2) { opacity: 0; }
+  .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+
+  /* Mobile dropdown */
+  .mobile-menu {
+    display: none; position: fixed;
+    top: var(--nav-h); left: 0; right: 0;
+    background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border);
+    z-index: 199; padding: 12px 16px;
+    flex-direction: column; gap: 4px;
+    backdrop-filter: blur(16px);
+  }
+  .mobile-menu.open { display: flex; }
+  .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .mobile-menu a {
+    color: var(--muted); text-decoration: none;
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; transition: all 0.15s;
+  }
+  .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+  .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+  .mobile-menu a.logout { color: var(--red); }
+
+  /* On desktop: hide nav-links when hamburger is open, keep hamburger always */
+  @media (min-width: 769px) {
+    .nav-links { display: flex !important; }
+  }
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+  }
+</style>
+
+<script id="nav-scripts">
+// ── Nav toggle ──────────────────────────────────────────────────────────────
+function toggleMobileMenu() {
+  document.getElementById('hamburger').classList.toggle('open');
+  document.getElementById('mobile-menu').classList.toggle('open');
+  // Close alert panel if open
+  document.getElementById('alert-panel').style.display = 'none';
+}
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', e => {
+  const menu = document.getElementById('mobile-menu');
+  const ham  = document.getElementById('hamburger');
+  if (menu && ham && !menu.contains(e.target) && !ham.contains(e.target)) {
+    menu.classList.remove('open');
+    ham.classList.remove('open');
+  }
+});
+
+// ── Alert panel ─────────────────────────────────────────────────────────────
+function toggleAlertPanel(e) {
+  e.preventDefault();
+  const panel = document.getElementById('alert-panel');
+  const isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  // Close mobile menu
+  document.getElementById('mobile-menu').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+}
+
+function clearAlerts() {
+  fetch('/api/alerts/clear', { method: 'POST' })
+    .then(() => {
+      document.getElementById('alert-list').innerHTML =
+        '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">No alerts.</div>';
+      hideBadge();
+    });
+}
+
+function hideBadge() {
+  const b  = document.getElementById('alert-badge');
+  const mb = document.getElementById('mobile-badge');
+  if (b)  { b.style.display  = 'none'; }
+  if (mb) { mb.style.display = 'none'; }
+}
+
+function showBadge(count) {
+  const b  = document.getElementById('alert-badge');
+  const mb = document.getElementById('mobile-badge');
+  if (b)  { b.textContent = count; b.style.display  = 'inline-flex'; }
+  if (mb) { mb.textContent = count; mb.style.display = 'inline'; }
+}
+
+// ── Push notification subscription ─────────────────────────────────────────
+const VAPID_PUBLIC = 'BP6c5_jsEuyoThDOWpYnmBCCo73QQSBDAvLPLGjU2WiBh7uVnrTFSZkZbADlPQ8-6m7_3v5jisvanVvxDKwnNCI';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = window.atob(base64);
+  return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg  = await navigator.serviceWorker.ready;
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Already subscribed — send to server in case it was lost
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing)
+      });
+      return;
+    }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
+    });
+    await fetch('/api/push/subscribe', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(sub)
+    });
+  } catch(err) {
+    console.log('Push subscription failed:', err);
+  }
+}
+
+// ── Load alerts on page load ────────────────────────────────────────────────
+async function loadAlerts() {
+  try {
+    const resp = await fetch('/api/alerts');
+    const data = await resp.json();
+    if (!data.alerts || data.alerts.length === 0) { hideBadge(); return; }
+
+    showBadge(data.alerts.length);
+
+    const html = data.alerts.map(a => `
+      <div style="
+        padding:12px 14px; border-radius:8px; margin-bottom:6px;
+        background:var(--bg); border:1px solid var(--border);
+        border-left:3px solid ${alertColor(a.type)};
+      ">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:3px;">
+              ${alertIcon(a.type)} <a href="/stock/${a.ticker}" style="color:var(--gold);text-decoration:none;">${a.ticker}</a>
+              — ${a.message}
+            </div>
+            <div style="font-size:11px;color:var(--muted);">${a.created_at}</div>
+          </div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('alert-list').innerHTML = html;
+  } catch(e) {}
+}
+
+function alertColor(type) {
+  const map = { breakout: 'var(--green)', volume: 'var(--orange)', portfolio: 'var(--blue)', top5: 'var(--gold)' };
+  return map[type] || 'var(--muted)';
+}
+function alertIcon(type) {
+  const map = { breakout: '📈', volume: '⚡', portfolio: '💼', top5: '🏆' };
+  return map[type] || '🔔';
+}
+
+// Run on every page load
+window.addEventListener('load', () => {
+  loadAlerts();
+  subscribeToPush();
+});
+</script>
