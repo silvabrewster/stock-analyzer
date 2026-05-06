@@ -123,6 +123,23 @@
     .mc-sig.off { display: none; }
     .mc-stats { display: flex; gap: 12px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
     .mc-stats span strong { color: var(--text); }
+
+    /* ── WEEKLY TREND TOGGLE ── */
+    .view-toggle { display: flex; gap: 6px; margin-bottom: 16px; }
+    .view-btn { background: var(--surf); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+    .view-btn.active { background: rgba(201,168,76,0.1); color: var(--gold); border-color: rgba(201,168,76,0.3); }
+    .view-btn:hover { color: var(--text); border-color: var(--gold); }
+    #weekly-view { display: none; }
+    .weekly-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 600px; }
+    .weekly-table thead tr { background: var(--surf2); border-bottom: 1px solid var(--border); }
+    .weekly-table th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; }
+    .weekly-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+    .weekly-table tbody tr:hover { background: var(--surf2); }
+    .weekly-table td { padding: 11px 12px; white-space: nowrap; }
+    .consistency-bar { display: flex; align-items: center; gap: 6px; }
+    .consist-track { width: 50px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .consist-fill { height: 100%; background: var(--blue); border-radius: 2px; }
+    .weekly-loading { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
     @media (max-width: 768px) {
       .hamburger { display: flex; } .nav-links { display: none; }
       .table-container .table-scroll { display: none; } .table-container .col-toggle { display: none; }
@@ -232,6 +249,14 @@
   </div>
   {% endif %}
 
+
+  <!-- View toggle: Today vs Weekly Trend -->
+  <div class="view-toggle">
+    <button class="view-btn active" id="btn-today" onclick="switchView('today')">📅 Today's Picks</button>
+    <button class="view-btn" id="btn-weekly" onclick="switchView('weekly')">📈 Weekly Trend</button>
+  </div>
+
+  <div id="today-view">
   <div class="table-container">
     <div class="col-toggle">
       <span class="col-toggle-label">Show:</span>
@@ -322,6 +347,20 @@
         </div>
       </div>
       {% endfor %}
+    </div>
+  </div>
+
+  </div><!-- end today-view -->
+
+  <!-- Weekly trend view -->
+  <div id="weekly-view">
+    <div class="table-container">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);">
+        Stocks ranked by <strong style="color:var(--text);">average score over the last 7 days</strong> — more stable than single-day picks. Only shows stocks appearing 2+ days.
+      </div>
+      <div class="table-scroll" id="weekly-table-wrap">
+        <div class="weekly-loading">Loading weekly trend data...</div>
+      </div>
     </div>
   </div>
   <p style="font-size:10px;color:var(--muted);margin-top:12px;line-height:1.8;">Score: Yahoo(22)+Zacks(22)+MS(18)+Insider(12)+Vanguard(10)+EPS(8)+RS(8)+Alignment(+8 bonus) &nbsp;·&nbsp; 🎯 = Full signal alignment &nbsp;·&nbsp; <em>Not financial advice.</em></p>
