@@ -78,19 +78,22 @@ def check_alerts(conn):
         aconn = get_db()
         today = datetime.now().strftime("%Y-%m-%d")
 
-        # Ensure tables exist
+        # Ensure tables exist (SQLite-compatible syntax)
         for sql in [
             """CREATE TABLE IF NOT EXISTS alerts (
-                id SERIAL PRIMARY KEY, ticker TEXT NOT NULL, type TEXT NOT NULL,
-                message TEXT NOT NULL, seen INTEGER DEFAULT 0,
+                id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
+                type TEXT NOT NULL, message TEXT NOT NULL, seen INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
             """CREATE TABLE IF NOT EXISTS push_subscriptions (
-                id SERIAL PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE,
+                id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
                 p256dh TEXT NOT NULL, auth TEXT NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
         ]:
-            aconn.execute(sql)
+            try:
+                aconn.execute(sql)
+            except Exception:
+                pass
         aconn.commit()
 
         # Get already-fired alerts today

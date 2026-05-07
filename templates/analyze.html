@@ -121,6 +121,7 @@
     <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}" class="active">Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">Claude's Picks</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
   <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
@@ -138,6 +139,7 @@
     <a href="{{ url_for('checklist') }}">📋 Checklist</a>
     <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
     <a href="{{ url_for('analyze') }}" class="active">🔬 Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">🤖 Claude's Picks</a>
   </div>
   <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
 </div>
@@ -212,13 +214,20 @@ function renderResults(ticker, d) {
   const sb = d.smart_buy;
   const sbHtml = sb ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;background:${sb.rating==='strong_buy'||sb.rating==='buy'?'rgba(74,222,128,0.1)':sb.rating==='avoid'?'rgba(248,113,113,0.1)':'rgba(251,191,36,0.1)'};color:${sb.rating==='strong_buy'||sb.rating==='buy'?'var(--green)':sb.rating==='avoid'?'var(--red)':'var(--yellow)'};border:1px solid ${sb.rating==='strong_buy'||sb.rating==='buy'?'rgba(74,222,128,0.3)':sb.rating==='avoid'?'rgba(248,113,113,0.3)':'rgba(251,191,36,0.3)'};">${sb.emoji} ${sb.label}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;">— ${sb.reason}</span></div>` : '';
 
+  // Bull / Bear badge
+  const sig = d.stock_signal || {};
+  const sigColor = sig.color || 'var(--yellow)';
+  const sigBg = sigColor === 'var(--green)' ? 'rgba(74,222,128,0.1)' : sigColor === 'var(--red)' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)';
+  const sigBorder = sigColor === 'var(--green)' ? 'rgba(74,222,128,0.3)' : sigColor === 'var(--red)' ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.3)';
+  const sigHtml = sig.label ? `<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;background:${sigBg};color:${sigColor};border:1px solid ${sigBorder};">${sig.emoji} ${sig.label}</div>` : '';
+
   wrap.innerHTML = `
     <div class="header-card">
       <div class="header-left">
         <div class="stock-ticker">${ticker}</div>
         <div class="stock-name">${d.name||''}</div>
         <div class="stock-sector"><span class="sector-tag">${d.sector||'Unknown'}</span> <span class="sector-tag">${d.industry||''}</span></div>
-        ${sbHtml}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;">${sigHtml}${sbHtml}</div>
       </div>
       <div class="price-block">
         <div class="price-big">$${fmt(d.price,'','',2)}</div>

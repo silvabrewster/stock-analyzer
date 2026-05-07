@@ -215,10 +215,13 @@
     {% endif %}
 
     <form method="POST">
+      <label for="username">Your Name</label>
+      <input type="text" id="username" name="username" placeholder="e.g. alex" autofocus autocomplete="username" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s;margin-bottom:16px;" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
       <label for="password">Access Password</label>
-      <input type="password" id="password" name="password" placeholder="••••••••••••" autofocus>
+      <input type="password" id="password" name="password" placeholder="••••••••••••" autocomplete="current-password">
       <button type="submit">Enter Dashboard →</button>
     </form>
+    <p style="font-size:11px;color:var(--muted);margin-top:14px;text-align:center;">Your name scopes your portfolio &amp; watchlist so multiple users can share this app.</p>
   </div>
 
   <div class="ticker-strip">

@@ -1,0 +1,40 @@
+services:
+  # ── Main Web App ─────────────────────────────────────────────────────────────
+  - type: web
+    name: stock-analyzer
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /ping
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APP_PASSWORD
+        sync: false          # set manually in Render dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: VAPID_PUBLIC
+        sync: false
+      - key: VAPID_PRIVATE
+        sync: false
+      - key: DATABASE_URL
+        sync: false          # set to Postgres URL if using Supabase/Render Postgres
+      - key: APP_URL
+        sync: false          # e.g. https://stock-analyzer-xxxx.onrender.com
+      - key: RESEND_KEY
+        sync: false
+
+  # ── Keep-Alive Cron (pings web app every 10 minutes) ─────────────────────────
+  # NOTE: Cron jobs on Render require a paid plan.
+  # Free alternative: use https://cron-job.org pointing to your /ping endpoint.
+  - type: cron
+    name: stock-analyzer-keepalive
+    runtime: python
+    plan: starter
+    schedule: "*/10 * * * *"
+    buildCommand: pip install requests
+    startCommand: python keepalive.py --once
+    envVars:
+      - key: APP_URL
+        sync: false

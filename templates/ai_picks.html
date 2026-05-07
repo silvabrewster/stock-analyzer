@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Convergence">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <title>Convergence — Claude's Picks</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #0b0e14; --surf: #111620; --surf2: #161c2a; --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080; --text: #e8eaf0; --muted: #6b7280; --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa; --nav-h: 56px; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
+    .nav-links a.logout { color: var(--red); }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .hamburger { display: flex; } .nav-links { display: none; } main { padding: 16px; } }
+
+    main { position: relative; z-index: 1; padding: 32px; max-width: 900px; margin: 0 auto; }
+    .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
+    .page-sub   { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    /* Accuracy bar */
+    .acc-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .acc-big  { font-family: 'DM Mono', monospace; font-size: 40px; font-weight: 700; }
+    .acc-meta { flex: 1; }
+    .acc-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+    .acc-bar-wrap { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .acc-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s; }
+
+    /* Lessons box */
+    .lessons-card { background: rgba(201,168,76,0.05); border: 1px solid rgba(201,168,76,0.2); border-radius: 14px; padding: 18px 22px; margin-bottom: 24px; }
+    .lessons-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); margin-bottom: 10px; font-weight: 600; }
+    .lesson-item { font-size: 13px; color: var(--text); padding: 5px 0; border-bottom: 1px solid rgba(201,168,76,0.1); line-height: 1.5; }
+    .lesson-item:last-child { border-bottom: none; }
+
+    /* Pick cards */
+    .picks-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+    .pick-card { background: var(--surf); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+    .pick-rank { font-family: 'DM Mono', monospace; font-size: 22px; color: var(--muted); width: 28px; flex-shrink: 0; }
+    .pick-body { flex: 1; min-width: 200px; }
+    .pick-ticker { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 600; color: var(--gold); text-decoration: none; }
+    .pick-ticker:hover { text-decoration: underline; }
+    .pick-direction { display: inline-flex; align-items: center; gap: 5px; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-top: 6px; }
+    .dir-bullish  { background: rgba(74,222,128,0.1);  color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+    .dir-bearish  { background: rgba(248,113,113,0.1); color: var(--red);   border: 1px solid rgba(248,113,113,0.3); }
+    .dir-neutral  { background: rgba(251,191,36,0.1);  color: var(--yellow);border: 1px solid rgba(251,191,36,0.3); }
+    .pick-reasoning { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
+    .pick-conf  { text-align: right; flex-shrink: 0; }
+    .conf-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+    .conf-val   { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 700; }
+    .conf-bar-wrap { width: 80px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+    .conf-bar-fill { height: 100%; border-radius: 3px; background: var(--gold); }
+
+    .outcome-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin-top: 6px; }
+    .outcome-correct { background: rgba(74,222,128,0.1); color: var(--green); }
+    .outcome-wrong   { background: rgba(248,113,113,0.1); color: var(--red); }
+    .outcome-pending { background: rgba(107,114,128,0.1); color: var(--muted); }
+
+    .regen-btn { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #0b0e14; border: none; border-radius: 10px; padding: 11px 24px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+    .regen-btn:hover { opacity: 0.85; }
+    .empty-state { text-align: center; padding: 64px 32px; color: var(--muted); }
+    .empty-state .big { font-size: 52px; margin-bottom: 16px; }
+
+    .notice { background: rgba(96,165,250,0.07); border: 1px solid rgba(96,165,250,0.2); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--blue); margin-bottom: 24px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('history') }}">History</a>
+    <a href="{{ url_for('sectors') }}">Sectors</a>
+    <a href="{{ url_for('watchlist') }}">Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
+    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
+    <a href="{{ url_for('backtest') }}">Backtest</a>
+    <a href="{{ url_for('checklist') }}">Checklist</a>
+    <a href="{{ url_for('momentum') }}">Momentum</a>
+    <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('ai_picks') }}" class="active">Claude's Picks</a>
+    <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+  </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
+</nav>
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}">⚖️ Compare</a>
+    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+    <a href="{{ url_for('ai_picks') }}" class="active">🤖 Claude's Picks</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
+
+<main>
+  <div class="page-title">🤖 Claude's Picks</div>
+  <p class="page-sub">Claude picks the top 5 stocks of the day, predicts their direction for the next week, and learns from its mistakes over time.</p>
+
+  <div class="notice">
+    Predictions are generated once per day from the latest scan data. After 5+ days, outcomes are checked against real prices and Claude adjusts its reasoning for the next cycle.
+  </div>
+
+  <!-- Accuracy panel -->
+  {% if total_checked > 0 %}
+  <div class="acc-card">
+    <div>
+      <div class="acc-label">Overall Accuracy</div>
+      <div class="acc-big" style="color:{% if accuracy >= 60 %}var(--green){% elif accuracy >= 45 %}var(--yellow){% else %}var(--red){% endif %};">{{ accuracy }}%</div>
+    </div>
+    <div class="acc-meta">
+      <div class="acc-label">{{ correct }} correct out of {{ total_checked }} evaluated predictions</div>
+      <div class="acc-bar-wrap">
+        <div class="acc-bar-fill" style="width:{{ accuracy }}%;background:{% if accuracy >= 60 %}var(--green){% elif accuracy >= 45 %}var(--yellow){% else %}var(--red){% endif %};"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Lessons box -->
+  {% if lessons %}
+  <div class="lessons-card">
+    <div class="lessons-title">🧠 What Claude has learned from past mistakes</div>
+    {% for lesson in lessons %}
+    <div class="lesson-item">• {{ lesson }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Picks -->
+  {% if picks %}
+  <div class="picks-grid">
+    {% for p in picks %}
+    {% set dir_class = 'dir-bullish' if p.predicted_direction == 'bullish' else ('dir-bearish' if p.predicted_direction == 'bearish' else 'dir-neutral') %}
+    {% set dir_emoji = '🐂' if p.predicted_direction == 'bullish' else ('🐻' if p.predicted_direction == 'bearish' else '⚖️') %}
+    <div class="pick-card">
+      <div class="pick-rank">#{{ loop.index }}</div>
+      <div class="pick-body">
+        <a href="{{ url_for('stock_detail', ticker=p.ticker) }}" class="pick-ticker">{{ p.ticker }}</a>
+        <div>
+          <span class="pick-direction {{ dir_class }}">{{ dir_emoji }} {{ p.predicted_direction|title }}</span>
+          {% if p.was_correct == 1 %}
+            <span class="outcome-badge outcome-correct">✓ Correct</span>
+          {% elif p.was_correct == 0 %}
+            <span class="outcome-badge outcome-wrong">✗ Wrong</span>
+          {% else %}
+            <span class="outcome-badge outcome-pending">⏳ Pending ({{ p.prediction_date }})</span>
+          {% endif %}
+        </div>
+        <div class="pick-reasoning">{{ p.reasoning }}</div>
+        {% if p.price_at_prediction %}
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+          Price when predicted: ${{ "%.2f"|format(p.price_at_prediction) }}
+          {% if p.price_1w_later %}→ ${{ "%.2f"|format(p.price_1w_later) }} actual{% endif %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="pick-conf">
+        <div class="conf-label">Confidence</div>
+        <div class="conf-val" style="color:{% if p.confidence >= 70 %}var(--green){% elif p.confidence >= 50 %}var(--yellow){% else %}var(--muted){% endif %};">{{ p.confidence }}</div>
+        <div class="conf-bar-wrap"><div class="conf-bar-fill" style="width:{{ p.confidence }}%;"></div></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <form method="POST" action="{{ url_for('api_ai_picks_regenerate') }}">
+      <button type="submit" class="regen-btn" onclick="return confirm('Regenerate today\'s picks? This will delete today\'s existing predictions.')">↺ Regenerate Today's Picks</button>
+    </form>
+    <p style="font-size:12px;color:var(--muted);">Picks are re-evaluated automatically after 5 days when outcomes are known.</p>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="big">🤖</div>
+    <p style="font-size:15px;margin-bottom:20px;">No picks yet for today.</p>
+    {% if not picks %}
+    <form method="POST" action="{{ url_for('api_ai_picks_regenerate') }}">
+      <button type="submit" class="regen-btn">Generate Today's Picks →</button>
+    </form>
+    {% endif %}
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;">Requires an ANTHROPIC_API_KEY environment variable and at least one completed daily scan.</p>
+  </div>
+  {% endif %}
+
+</main>
+<script>
+function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+</script>
+</body>
+</html>

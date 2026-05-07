@@ -36,6 +36,7 @@ def init_db():
         """CREATE TABLE IF NOT EXISTS market_conditions (
             id INTEGER PRIMARY KEY AUTOINCREMENT, scan_date TEXT NOT NULL,
             sp500 REAL, sp500_chg REAL, vix REAL, tny REAL,
+            ai_brief TEXT,
             regime TEXT, regime_label TEXT, regime_confidence INTEGER,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
         """CREATE TABLE IF NOT EXISTS penny_scans (
@@ -72,6 +73,34 @@ def init_db():
     for sql in tables:
         conn.execute(sql)
     conn.commit()
+
+    # ── schema migrations (idempotent) ────────────────────────────────────────
+    migrations = [
+        "ALTER TABLE market_conditions ADD COLUMN ai_brief TEXT",
+        "ALTER TABLE portfolio ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
+        "ALTER TABLE watchlist ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
+        """CREATE TABLE IF NOT EXISTS ai_predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prediction_date TEXT NOT NULL,
+            ticker TEXT NOT NULL,
+            predicted_direction TEXT,
+            confidence INTEGER,
+            reasoning TEXT,
+            price_at_prediction REAL,
+            price_1w_later REAL,
+            actual_direction TEXT,
+            was_correct INTEGER,
+            error_analysis TEXT,
+            lessons TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # column already exists / table already exists
+
     conn.close()
 
 def save_scan_to_db(df, market: dict):
@@ -205,6 +234,7 @@ def login():
     if request.method == "POST":
         if request.form.get("password") == APP_PASSWORD:
             session["logged_in"] = True
+            session["user"] = request.form.get("username","").strip().lower() or "default"
             return redirect(url_for("dashboard"))
         error = "Wrong password. Try again."
     return render_template("login.html", error=error)
@@ -551,18 +581,56 @@ def api_analyze(ticker):
                 alignment = {"label":row["alignment"]}
         except Exception:
             pass
+        # ── Bull / Bear signal ────────────────────────────────────────────────
+        bb_score = 0
+        w52 = week52_pos or 50
+        if w52 > 65:    bb_score += 2
+        elif w52 > 50:  bb_score += 1
+        elif w52 < 35:  bb_score -= 2
+        elif w52 < 50:  bb_score -= 1
+        if price_chg >  1:  bb_score += 2
+        elif price_chg > 0: bb_score += 1
+        elif price_chg < -1: bb_score -= 2
+        elif price_chg < 0:  bb_score -= 1
+        if momentum_score >= 65:  bb_score += 2
+        elif momentum_score >= 40: bb_score += 1
+        else: bb_score -= 1
+        if analyst_score >= 65:  bb_score += 2
+        elif analyst_score >= 40: bb_score += 1
+        if short_pct and short_pct > 20: bb_score -= 1
+        if upside and upside > 15: bb_score += 1
+        elif upside and upside < 0: bb_score -= 1
+
+        if   bb_score >= 5:  stock_signal = {"label": "Strongly Bullish", "emoji": "🐂", "color": "var(--green)"}
+        elif bb_score >= 2:  stock_signal = {"label": "Bullish",          "emoji": "📈", "color": "var(--green)"}
+        elif bb_score <= -5: stock_signal = {"label": "Strongly Bearish", "emoji": "🐻", "color": "var(--red)"}
+        elif bb_score <= -2: stock_signal = {"label": "Bearish",          "emoji": "📉", "color": "var(--red)"}
+        else:                stock_signal = {"label": "Neutral",           "emoji": "⚖️", "color": "var(--yellow)"}
+
         ai_analysis = ""
         try:
-            prompt = f"""Analyze {ticker} ({name}): Price ${price:.2f}, P/E {pe}, Revenue Growth {revenue_growth}%, Margin {profit_margin}%, ROE {roe}%, D/E {debt_equity}, Beta {beta}, Short {short_pct}%, Analyst: {analyst_label} ({num_analysts}), Target ${price_target} ({upside}% upside), Cap {cap_label}, Sector {sector}, Risk {risk_score}/100, Smart Buy: {smart_buy['label']}.
+            anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            if not anthropic_key:
+                raise ValueError("No API key")
+            prompt = f"""Analyze {ticker} ({name}): Price ${price:.2f}, P/E {pe}, Revenue Growth {revenue_growth}%, Margin {profit_margin}%, ROE {roe}%, D/E {debt_equity}, Beta {beta}, Short {short_pct}%, Analyst: {analyst_label} ({num_analysts}), Target ${price_target} ({upside}% upside), Cap {cap_label}, Sector {sector}, Risk {risk_score}/100, Signal: {stock_signal['label']}, Smart Buy: {smart_buy['label']}.
 Write 3 short paragraphs: 1) business & competitive position 2) key strengths now 3) risks & who it suits. Max 180 words. No headers."""
-            resp = req.post("https://api.anthropic.com/v1/messages",
-                headers={"Content-Type":"application/json"},
-                json={"model":"claude-sonnet-4-20250514","max_tokens":300,
-                      "messages":[{"role":"user","content":prompt}]},timeout=30)
-            if resp.status_code==200:
-                ai_analysis=resp.json()["content"][0]["text"].strip()
+            resp = req.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "Content-Type":    "application/json",
+                    "x-api-key":       anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={"model": "claude-sonnet-4-6", "max_tokens": 300,
+                      "messages": [{"role": "user", "content": prompt}]},
+                timeout=30
+            )
+            if resp.status_code == 200:
+                ai_analysis = resp.json()["content"][0]["text"].strip()
+            else:
+                ai_analysis = f"{name} operates in {sector}. Risk: {risk_score}/100. Research before investing."
         except Exception:
-            ai_analysis=f"{name} operates in {sector}. Risk: {risk_score}/100. Research before investing."
+            ai_analysis = f"{name} operates in {sector}. Risk: {risk_score}/100. Research before investing."
         return jsonify({
             "ticker":ticker,"name":name,"sector":sector,"industry":industry,
             "price":round(price,2),"price_change_pct":price_chg,
@@ -579,6 +647,7 @@ Write 3 short paragraphs: 1) business & competitive position 2) key strengths no
             "momentum_label":momentum_label,"risk_score":risk_score,
             "risk_summary":risk_summary,"ai_analysis":ai_analysis,
             "smart_buy":smart_buy,"alignment":alignment,
+            "stock_signal":stock_signal,
         })
     except Exception as e:
         return jsonify({"error":str(e)})
@@ -652,7 +721,8 @@ def sectors():
 @login_required
 def watchlist():
     conn    = get_db()
-    items   = conn.execute("SELECT * FROM watchlist ORDER BY added_date DESC").fetchall()
+    user_id = session.get("user", "default")
+    items   = conn.execute("SELECT * FROM watchlist WHERE user_id=? ORDER BY added_date DESC", (user_id,)).fetchall()
     today   = datetime.now().strftime("%Y-%m-%d")
     tickers = [w["ticker"] for w in items]
     prices  = batch_fetch_prices(tickers,conn) if tickers else {}
@@ -688,20 +758,26 @@ def watchlist():
 @app.route("/watchlist/add", methods=["POST"])
 @login_required
 def watchlist_add():
-    ticker = request.form.get("ticker","").upper().strip()
+    ticker       = request.form.get("ticker","").upper().strip()
     target_price = request.form.get("target_price") or None
-    notes = request.form.get("notes","").strip()
+    notes        = request.form.get("notes","").strip()
+    user_id      = session.get("user", "default")
     if ticker:
         conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO watchlist (ticker,target_price,notes) VALUES (?,?,?)",(ticker,target_price,notes))
+        conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker, user_id))
+        conn.execute(
+            "INSERT INTO watchlist (ticker, user_id, target_price, notes) VALUES (?,?,?,?)",
+            (ticker, user_id, target_price, notes)
+        )
         conn.commit(); conn.close()
     return redirect(url_for("watchlist"))
 
 @app.route("/watchlist/remove/<ticker>", methods=["POST"])
 @login_required
 def watchlist_remove(ticker):
+    user_id = session.get("user", "default")
     conn = get_db()
-    conn.execute("DELETE FROM watchlist WHERE ticker=?",(ticker.upper(),))
+    conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
     conn.commit(); conn.close()
     return redirect(url_for("watchlist"))
 
@@ -710,8 +786,9 @@ def watchlist_remove(ticker):
 @app.route("/portfolio")
 @login_required
 def portfolio():
-    conn  = get_db()
-    rows  = conn.execute("SELECT * FROM portfolio ORDER BY added_date DESC").fetchall()
+    conn    = get_db()
+    user_id = session.get("user", "default")
+    rows    = conn.execute("SELECT * FROM portfolio WHERE user_id=? ORDER BY added_date DESC", (user_id,)).fetchall()
     tickers = [row["ticker"] for row in rows]
     prices  = batch_fetch_prices(tickers,conn) if tickers else {}
     holdings=[]; total_value=0; total_cost=0
@@ -739,18 +816,19 @@ def portfolio():
 @app.route("/portfolio/add", methods=["POST"])
 @login_required
 def portfolio_add():
-    ticker=request.form.get("ticker","").upper().strip()
-    shares=request.form.get("shares"); buy_price=request.form.get("buy_price")
-    notes=request.form.get("notes","").strip()
+    ticker    = request.form.get("ticker","").upper().strip()
+    shares    = request.form.get("shares")
+    buy_price = request.form.get("buy_price")
+    notes     = request.form.get("notes","").strip()
+    user_id   = session.get("user", "default")
     if ticker and shares and buy_price:
         try:
-            conn=get_db()
-            conn.execute("""CREATE TABLE IF NOT EXISTS portfolio (
-                id SERIAL PRIMARY KEY, ticker TEXT NOT NULL UNIQUE,
-                shares REAL NOT NULL, buy_price REAL NOT NULL, notes TEXT,
-                added_date TEXT DEFAULT CURRENT_TIMESTAMP)""")
-            conn.commit()
-            conn.execute("INSERT OR REPLACE INTO portfolio (ticker, shares, buy_price, notes) VALUES (?,?,?,?)",(ticker,float(shares),float(buy_price),notes))
+            conn = get_db()
+            conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker, user_id))
+            conn.execute(
+                "INSERT INTO portfolio (ticker, user_id, shares, buy_price, notes) VALUES (?,?,?,?,?)",
+                (ticker, user_id, float(shares), float(buy_price), notes)
+            )
             conn.commit(); conn.close()
         except Exception as e:
             print(f"Portfolio add error: {e}")
@@ -761,14 +839,19 @@ def portfolio_add():
 @app.route("/portfolio/remove/<ticker>", methods=["POST"])
 @login_required
 def portfolio_remove(ticker):
-    conn=get_db(); conn.execute("DELETE FROM portfolio WHERE ticker=?",(ticker.upper(),)); conn.commit(); conn.close()
+    user_id = session.get("user", "default")
+    conn = get_db()
+    conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
+    conn.commit(); conn.close()
     return redirect(url_for("portfolio"))
 
 @app.route("/api/portfolio/prices")
 @login_required
 def api_portfolio_prices():
     import yfinance as yf
-    conn=get_db(); rows=conn.execute("SELECT ticker, shares FROM portfolio").fetchall()
+    user_id = session.get("user", "default")
+    conn = get_db()
+    rows = conn.execute("SELECT ticker, shares FROM portfolio WHERE user_id=?", (user_id,)).fetchall()
     tickers=[r["ticker"] for r in rows]; shares_map={r["ticker"]:r["shares"] for r in rows}
     for t in tickers:
         try: conn.execute("DELETE FROM price_cache WHERE ticker=?",(t,))
@@ -841,6 +924,23 @@ def api_alerts_clear():
     conn=get_db(); conn.execute("UPDATE alerts SET seen=1 WHERE seen=0"); conn.commit(); conn.close()
     return jsonify({"ok":True})
 
+@app.route("/api/push/test", methods=["POST"])
+@login_required
+def api_push_test():
+    try:
+        conn = get_db()
+        from alerts import send_push_to_all
+        send_push_to_all(conn, {
+            "title": "📈 Convergence — Test",
+            "body":  "Push notifications are working!",
+            "url":   "/",
+            "tag":   "test",
+        })
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
 @app.route("/api/push/subscribe",methods=["POST"])
 @login_required
 def api_push_subscribe():
@@ -876,6 +976,31 @@ def api_institutional(ticker):
 def ping():
     return "pong",200
 
+# ── Claude's Picks ────────────────────────────────────────────────────────────
+
+@app.route("/ai-picks")
+@login_required
+def ai_picks():
+    conn = get_db()
+    try:
+        from ai_predictions import get_picks_with_history
+        data = get_picks_with_history(conn)
+    except Exception as e:
+        print(f"AI picks error: {e}")
+        data = {"picks": [], "accuracy": None, "total_checked": 0, "correct": 0, "lessons": []}
+    conn.close()
+    return render_template("ai_picks.html", **data)
+
+@app.route("/api/ai-picks/regenerate", methods=["POST"])
+@login_required
+def api_ai_picks_regenerate():
+    conn  = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    conn.execute("DELETE FROM ai_predictions WHERE prediction_date=?", (today,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("ai_picks"))
+
 @app.route("/seed")
 @login_required
 def seed():
@@ -891,6 +1016,31 @@ def seed():
 
 # ── run ───────────────────────────────────────────────────────────────────────
 
+def _keepalive_thread():
+    """
+    Background thread that pings /ping every 8 minutes.
+    On Render free tier the dyno sleeps after ~15 min of inactivity —
+    this thread keeps it warm while the process is already running.
+    For a cold-start fix, use an external pinger (cron-job.org or render.yaml cron).
+    """
+    import threading, time as _time, requests as _req
+    def _loop():
+        _time.sleep(60)  # wait for app to start
+        app_url = os.environ.get("APP_URL", "").rstrip("/")
+        if not app_url:
+            return
+        ping_url = f"{app_url}/ping"
+        while True:
+            try:
+                _req.get(ping_url, timeout=10)
+            except Exception:
+                pass
+            _time.sleep(480)  # 8 minutes
+    t = threading.Thread(target=_loop, daemon=True)
+    t.start()
+
 init_db()
+_keepalive_thread()
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -18,6 +18,7 @@
     <a href="{{ url_for('checklist') }}"          {% if active_page == 'checklist'  %}class="active"{% endif %}>Checklist</a>
     <a href="{{ url_for('momentum') }}"           {% if active_page == 'momentum'   %}class="active"{% endif %}>Momentum</a>
     <a href="{{ url_for('analyze') }}"            {% if active_page == 'analyze'    %}class="active"{% endif %}>Analyze</a>
+    <a href="{{ url_for('ai_picks') }}"           {% if active_page == 'ai_picks'   %}class="active"{% endif %}>Claude's Picks</a>
     <!-- Alert bell -->
     <a href="#" id="nav-bell" onclick="toggleAlertPanel(event)" style="position:relative;padding:5px 10px;">
       🔔<span id="alert-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:14px;height:14px;display:none;align-items:center;justify-content:center;line-height:1;">0</span>
@@ -45,6 +46,7 @@
     <a href="{{ url_for('checklist') }}"         {% if active_page == 'checklist'  %}class="active"{% endif %}>📋 Checklist</a>
     <a href="{{ url_for('momentum') }}"          {% if active_page == 'momentum'   %}class="active"{% endif %}>⚡ Momentum</a>
     <a href="{{ url_for('analyze') }}"           {% if active_page == 'analyze'    %}class="active"{% endif %}>🔬 Analyze</a>
+    <a href="{{ url_for('ai_picks') }}"          {% if active_page == 'ai_picks'   %}class="active"{% endif %}>🤖 Claude's Picks</a>
     <a href="#" onclick="toggleAlertPanel(event)">🔔 Alerts <span id="mobile-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span></a>
   </div>
   <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
