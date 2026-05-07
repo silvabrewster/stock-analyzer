@@ -116,9 +116,7 @@
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
     <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
-    <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}" class="active">Analyze</a>
     <a href="{{ url_for('ai_picks') }}">Claude's Picks</a>
@@ -134,9 +132,7 @@
     <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
     <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
     <a href="{{ url_for('compare') }}">⚖️ Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
     <a href="{{ url_for('backtest') }}">📊 Backtest</a>
-    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
     <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
     <a href="{{ url_for('analyze') }}" class="active">🔬 Analyze</a>
     <a href="{{ url_for('ai_picks') }}">🤖 Claude's Picks</a>
@@ -153,6 +149,38 @@
   <div id="loading"><div class="spinner"></div><p id="loading-msg">Fetching data...</p></div>
   <div id="empty-state"><div class="big">🔬</div><p>Enter any stock ticker above.<br>We'll pull the full financials, calculate a risk rating,<br>and generate an AI summary in seconds.</p></div>
   <div id="results"></div>
+
+  <!-- Research Checklist -->
+  <div id="checklist-section" style="margin-top:24px;">
+    <button onclick="toggleChecklist()" style="width:100%;background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px 20px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:all 0.15s;font-family:'DM Sans',sans-serif;display:flex;justify-content:space-between;align-items:center;">
+      <span>📋 Research Checklist — Before you act on this pick</span>
+      <span id="cl-arrow">▼</span>
+    </button>
+    <div id="cl-body" style="display:none;background:var(--surf);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:20px 24px;">
+      <style>.cl-sec{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin:16px 0 8px;}.cl-sec:first-child{margin-top:0;}.cl-item{display:flex;gap:12px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);cursor:pointer;transition:border-color 0.15s;}.cl-item:hover{border-color:var(--gold);}.cl-item.on{border-color:var(--green);background:rgba(74,222,128,0.04);}.cl-box{width:18px;height:18px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;margin-top:1px;transition:all 0.15s;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}.cl-item.on .cl-box{background:var(--green);border-color:var(--green);color:#0b0e14;}.cl-q{font-size:13px;font-weight:500;margin-bottom:3px;}.cl-hint{font-size:11px;color:var(--muted);line-height:1.5;}.cl-tag{font-size:9px;padding:1px 6px;border-radius:3px;font-weight:600;margin-left:6px;}.cl-must{background:rgba(248,113,113,0.15);color:var(--red);}.cl-imp{background:rgba(251,191,36,0.15);color:var(--yellow);}.cl-nice{background:rgba(96,165,250,0.15);color:var(--blue);}</style>
+      <div class="cl-sec">🔴 Must Answer — Business Understanding</div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Do I understand how this company makes money? <span class="cl-tag cl-must">Must</span></div><div class="cl-hint">Can you explain in one sentence? If not, don't invest.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">What are the 2-3 biggest risks to this business? <span class="cl-tag cl-must">Must</span></div><div class="cl-hint">Regulation, competition, debt, economic sensitivity.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Can I hold this for 3-5 years without panic selling? <span class="cl-tag cl-must">Must</span></div><div class="cl-hint">Stocks drop 20-40% at some point. If you'd sell at -30%, you're not ready.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Is this money I won't need for 3+ years? <span class="cl-tag cl-must">Must</span></div><div class="cl-hint">Never invest money you might need for rent or emergencies.</div></div></div>
+      <div class="cl-sec">🟡 Important — Valuation &amp; Financials</div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Is the stock reasonably valued vs earnings growth? <span class="cl-tag cl-imp">Important</span></div><div class="cl-hint">PEG ratio under 1.5 = reasonable. Over 3 = expensive.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Is revenue and earnings growing year over year? <span class="cl-tag cl-imp">Important</span></div><div class="cl-hint">Check 3 years of financials on Yahoo Finance.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Is debt manageable? <span class="cl-tag cl-imp">Important</span></div><div class="cl-hint">Debt-to-equity under 1.0 is generally safe.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Does the company generate positive free cash flow? <span class="cl-tag cl-imp">Important</span></div><div class="cl-hint">Cash-burning companies are risky.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">How does it compare to competitors? <span class="cl-tag cl-imp">Important</span></div><div class="cl-hint">Market leader or weaker player? Leaders tend to stay leaders.</div></div></div>
+      <div class="cl-sec">🔵 Nice to Know — Conviction Boosters</div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Top-10 pick for 3+ consecutive days? <span class="cl-tag cl-nice">Nice</span></div><div class="cl-hint">Check the Streak column on the dashboard.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Are insiders (CEO, CFO) buying recently? <span class="cl-tag cl-nice">Nice</span></div><div class="cl-hint">Check openinsider.com. Cluster buying = management believes in the stock.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Beating the S&amp;P 500 over the last 3-6 months? <span class="cl-tag cl-nice">Nice</span></div><div class="cl-hint">Strong stocks tend to stay strong. Check the "Beats S&amp;P" column.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Does the market environment support this? <span class="cl-tag cl-nice">Nice</span></div><div class="cl-hint">Check the regime banner on the dashboard. Bear market = be more selective.</div></div></div>
+      <div class="cl-item" onclick="clTog(this)"><div class="cl-box"></div><div><div class="cl-q">Am I diversified — not too much in one stock/sector? <span class="cl-tag cl-nice">Nice</span></div><div class="cl-hint">No single stock &gt; 5-10% of your portfolio.</div></div></div>
+      <div style="margin-top:14px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;"><span id="cl-prog-label">0 of 13 answered</span><span id="cl-prog-pct">0%</span></div><div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden;"><div id="cl-prog-fill" style="height:100%;background:linear-gradient(90deg,var(--gold),var(--green));border-radius:3px;transition:width 0.4s;width:0%;"></div></div></div>
+      <div id="cl-verdict" style="margin-top:10px;"></div>
+      <textarea id="cl-notes" placeholder="Research notes — why you like this stock, concerns, your price target. Saved per ticker." style="width:100%;margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;min-height:72px;resize:vertical;outline:none;"></textarea>
+      <div style="margin-top:8px;"><button onclick="clSave()" style="background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:6px 16px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;">Save Notes</button><span id="cl-saved" style="font-size:11px;color:var(--green);margin-left:10px;opacity:0;transition:opacity 0.3s;">✓ Saved</span></div>
+    </div>
+  </div>
 </main>
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
@@ -282,6 +310,17 @@ function renderSignal(icon,name,score,max,label){const pct=Math.min(100,Math.rou
 function streamText(elId,text){const el=document.getElementById(elId);el.innerHTML='';if(!text){el.textContent='Analysis unavailable.';return;}const paragraphs=text.split('\n\n').filter(p=>p.trim());let allWords=[];paragraphs.forEach((p,i)=>{p.split(' ').forEach(w=>allWords.push({word:w,para:i}));});let curPara=-1,curEl=null,i=0;const interval=setInterval(()=>{if(i>=allWords.length){clearInterval(interval);return;}const{word,para}=allWords[i];if(para!==curPara){curEl=document.createElement('p');curPara=para;el.appendChild(curEl);}curEl.textContent+=(curEl.textContent?' ':'')+word;i++;},30);}
 document.getElementById('ticker-input').addEventListener('keydown',e=>{if(e.key==='Enter')analyze();});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+
+// ── Checklist ──
+let clTicker='';
+function toggleChecklist(){const b=document.getElementById('cl-body'),a=document.getElementById('cl-arrow');const open=b.style.display==='block';b.style.display=open?'none':'block';a.textContent=open?'▼':'▲';}
+function clTog(el){el.classList.toggle('on');const box=el.querySelector('.cl-box');box.textContent=el.classList.contains('on')?'✓':'';clSaveChecks();clUpdateProgress();}
+function clUpdateProgress(){const items=document.querySelectorAll('.cl-item'),checked=document.querySelectorAll('.cl-item.on');const pct=Math.round(checked.length/13*100);document.getElementById('cl-prog-label').textContent=`${checked.length} of 13 answered`;document.getElementById('cl-prog-pct').textContent=pct+'%';document.getElementById('cl-prog-fill').style.width=pct+'%';const mustDone=document.querySelectorAll('.cl-sec:first-of-type ~ .cl-item.on').length;const v=document.getElementById('cl-verdict');if(pct>=85&&mustDone>=4){v.innerHTML='<div style="padding:10px 14px;border-radius:8px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);color:var(--green);font-size:13px;">✅ Ready to Research Further — solid due diligence done.</div>';}else if(pct>=50){v.innerHTML='<div style="padding:10px 14px;border-radius:8px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:var(--yellow);font-size:13px;">⚠️ More Research Needed — focus on the Must items first.</div>';}else if(pct>0){v.innerHTML='<div style="padding:10px 14px;border-radius:8px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red);font-size:13px;">🛑 Not Ready Yet — too many unanswered questions.</div>';}else{v.innerHTML='';}}
+function clSaveChecks(){if(!clTicker)return;const state=Array.from(document.querySelectorAll('.cl-item')).map(el=>el.classList.contains('on'));localStorage.setItem('cl_'+clTicker,JSON.stringify(state));}
+function clLoadChecks(ticker){const s=localStorage.getItem('cl_'+ticker);if(!s)return;JSON.parse(s).forEach((on,i)=>{const el=document.querySelectorAll('.cl-item')[i];if(!el)return;if(on){el.classList.add('on');el.querySelector('.cl-box').textContent='✓';}else{el.classList.remove('on');el.querySelector('.cl-box').textContent='';}});}
+function clSave(){if(!clTicker)return;localStorage.setItem('cl_notes_'+clTicker,document.getElementById('cl-notes').value);const s=document.getElementById('cl-saved');s.style.opacity=1;setTimeout(()=>s.style.opacity=0,2000);}
+function clLoadNotes(ticker){document.getElementById('cl-notes').value=localStorage.getItem('cl_notes_'+ticker)||'';}
+const _origRenderResults=renderResults;renderResults=function(ticker,d){_origRenderResults(ticker,d);clTicker=ticker;clLoadChecks(ticker);clLoadNotes(ticker);clUpdateProgress();};
 </script>
 </body>
 </html>

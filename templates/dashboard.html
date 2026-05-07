@@ -158,9 +158,7 @@
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
     <a href="{{ url_for('portfolio') }}">Portfolio</a>
     <a href="{{ url_for('compare') }}">Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">Earnings</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
-    <a href="{{ url_for('checklist') }}">Checklist</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
     <a href="#" id="nav-bell" onclick="toggleAlertPanel(event)" style="position:relative;padding:5px 10px;">🔔<span id="alert-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:14px;height:14px;line-height:14px;text-align:center;">0</span></a>
@@ -176,9 +174,7 @@
     <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
     <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
     <a href="{{ url_for('compare') }}">⚖️ Compare</a>
-    <a href="{{ url_for('earnings_calendar') }}">📅 Earnings</a>
     <a href="{{ url_for('backtest') }}">📊 Backtest</a>
-    <a href="{{ url_for('checklist') }}">📋 Checklist</a>
     <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
     <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
     <a href="#" onclick="toggleAlertPanel(event)">🔔 Alerts</a>
@@ -369,6 +365,9 @@
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+let weeklyLoaded=false;
+function switchView(view){const today=document.getElementById('today-view'),weekly=document.getElementById('weekly-view'),btnT=document.getElementById('btn-today'),btnW=document.getElementById('btn-weekly');if(view==='today'){today.style.display='block';weekly.style.display='none';btnT.classList.add('active');btnW.classList.remove('active');}else{today.style.display='none';weekly.style.display='block';btnT.classList.remove('active');btnW.classList.add('active');if(!weeklyLoaded){weeklyLoaded=true;loadWeekly();}}}
+async function loadWeekly(){const wrap=document.getElementById('weekly-table-wrap');try{const r=await fetch('/api/weekly_trend');const d=await r.json();if(!d.length){wrap.innerHTML='<div class="weekly-loading">Not enough data yet — needs 2+ days of scans.</div>';return;}const rows=d.map((s,i)=>{const sc=s.avg_score;const cls=sc>=70?'score-high':sc>=45?'score-mid':'score-low';const dayPct=Math.round(s.days/7*100);return `<tr onclick="window.location='/stock/${s.ticker}'" style="cursor:pointer;"><td style="font-family:'DM Mono',monospace;font-weight:500;color:var(--gold);">${i+1}. ${s.ticker}</td><td><span class="score-pill ${cls}">${Math.round(sc)}</span></td><td><div class="consistency-bar"><div class="consist-track"><div class="consist-fill" style="width:${dayPct}%;"></div></div><span style="font-size:11px;color:var(--muted);">${s.days}d</span></div></td><td style="color:var(--muted);font-size:11px;">${s.sector||'–'}</td><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">${s.max_score?Math.round(s.max_score):'–'} / ${s.min_score?Math.round(s.min_score):'–'}</td></tr>`}).join('');wrap.innerHTML=`<table class="weekly-table"><thead><tr><th>Ticker</th><th>Avg Score</th><th>Consistency</th><th>Sector</th><th>Max / Min</th></tr></thead><tbody>${rows}</tbody></table>`;}catch(e){wrap.innerHTML='<div class="weekly-loading">Failed to load weekly data.</div>';}}
 function toggleAlertPanel(e){e.preventDefault();const p=document.getElementById('alert-panel');p.style.display=p.style.display==='block'?'none':'block';}
 function clearAlerts(){fetch('/api/alerts/clear',{method:'POST'}).then(()=>{document.getElementById('alert-list').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">No alerts.</div>';document.getElementById('alert-badge').style.display='none';});}
 const colMap={signals:'col-signals',price:'col-price',upside:'col-upside',risk:'col-risk',sector:'col-sector',extra:'col-extra'};

@@ -916,6 +916,25 @@ def backtest():
         except Exception as e: result={"error":str(e)}
     return render_template("backtest.html",result=result)
 
+# ── portfolio earnings API ───────────────────────────────────────────────────
+
+@app.route("/api/portfolio/earnings")
+@login_required
+def api_portfolio_earnings():
+    conn = get_db()
+    user_id = session.get("user", "default")
+    rows = conn.execute("SELECT ticker FROM portfolio WHERE user_id=?", (user_id,)).fetchall()
+    conn.close()
+    tickers = [r["ticker"] for r in rows]
+    if not tickers:
+        return jsonify([])
+    try:
+        from features import get_earnings_calendar
+        earnings = get_earnings_calendar(tickers)
+        return jsonify(earnings)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ── alerts API ────────────────────────────────────────────────────────────────
 
 @app.route("/api/alerts")

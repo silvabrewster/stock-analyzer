@@ -253,8 +253,8 @@ def run_backtest(conn) -> dict:
             ORDER BY scan_date ASC
         """).fetchall()
 
-        if not picks or len(picks) < 5:
-            return {"error": "Need at least 5 days of scan history to backtest"}
+        if not picks or len(picks) < 2:
+            return {"error": "Need at least 2 days of scan history to backtest"}
 
         results = []; portfolio = 10000; sp_start = None; sp_end = None
 
