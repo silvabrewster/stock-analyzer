@@ -24,10 +24,28 @@ services:
         sync: false          # e.g. https://stock-analyzer-xxxx.onrender.com
       - key: RESEND_KEY
         sync: false
+      - key: SCAN_TOKEN
+        sync: false          # secret string; cron sends this to /api/run-scan
 
-  # ── Keep-Alive Cron (pings web app every 10 minutes) ─────────────────────────
-  # NOTE: Cron jobs on Render require a paid plan.
-  # Free alternative: use https://cron-job.org pointing to your /ping endpoint.
+  # ── Daily Scan Cron — 7AM Pacific (14:00 UTC) Mon-Fri ────────────────────────
+  # Paid Render plan required. Free alternative: cron-job.org POST to
+  # /api/run-scan with header X-Scan-Token: <SCAN_TOKEN> at 14:00 UTC weekdays.
+  - type: cron
+    name: stock-analyzer-daily-scan
+    runtime: python
+    plan: starter
+    schedule: "0 14 * * 1-5"
+    buildCommand: pip install requests
+    startCommand: >
+      python -c "import os,requests;r=requests.post(os.environ['APP_URL'].rstrip('/')+'/api/run-scan',headers={'X-Scan-Token':os.environ.get('SCAN_TOKEN','')},timeout=30);print(r.status_code,r.text)"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: SCAN_TOKEN
+        sync: false
+
+  # ── Keep-Alive Cron — pings /ping every 10 minutes ───────────────────────────
+  # Paid Render plan required. Free alternative: cron-job.org → /ping every 10min.
   - type: cron
     name: stock-analyzer-keepalive
     runtime: python
