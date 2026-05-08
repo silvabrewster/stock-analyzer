@@ -402,7 +402,34 @@ async function enableNotifications(){
   if(banner)banner.style.display='none';
   await subscribePush();
 }
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/static/sw.js').then(reg=>{
+    reg.addEventListener('updatefound',()=>{
+      const newSW=reg.installing;
+      newSW.addEventListener('statechange',()=>{
+        if(newSW.state==='installed'&&navigator.serviceWorker.controller){
+          showUpdateBanner();
+        }
+      });
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!sessionStorage.getItem('sw-reloaded')){
+      sessionStorage.setItem('sw-reloaded','1');
+      window.location.reload();
+    }
+  });
+}
+function showUpdateBanner(){
+  let b=document.getElementById('update-banner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='update-banner';
+    b.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--surf);border:1px solid var(--gold);border-radius:12px;padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,0.5);font-size:13px;white-space:nowrap;';
+    b.innerHTML='<span>✨ New version available</span><button onclick="window.location.reload()" style="background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0b0e14;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Refresh</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;">✕</button>';
+    document.body.appendChild(b);
+  }
+}
 </script>
 </body>
 </html>
