@@ -1,4 +1,4 @@
-const CACHE_NAME = 'convergence-v2';
+const CACHE_NAME = 'convergence-v3';
 const STATIC_ASSETS = [
   '/',
   '/static/manifest.json',
