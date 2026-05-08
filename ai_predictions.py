@@ -54,8 +54,10 @@ def _claude(prompt: str, max_tokens: int = 600) -> str:
 def _fetch_price(ticker: str) -> float | None:
     try:
         import yfinance as yf
-        fi = yf.Ticker(ticker).fast_info
-        p  = fi.last_price or fi.regular_market_price
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            fi = ex.submit(lambda t=ticker: yf.Ticker(t).fast_info).result(timeout=8)
+        p = fi.last_price or fi.regular_market_price
         return round(float(p), 2) if p else None
     except Exception:
         return None

@@ -9,6 +9,7 @@ Phase 2 final additions:
 
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor
 import os
 from datetime import datetime, timedelta
 
@@ -476,7 +477,11 @@ def api_analyze(ticker):
             price = float(fi.last_price or fi.regular_market_price or 0)
         except Exception:
             price = 0
-        info = t.info
+        try:
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                info = ex.submit(lambda: t.info).result(timeout=15)
+        except Exception:
+            info = {}
         if not info and not price:
             return jsonify({"error": "Ticker not found"})
         if not price:
@@ -586,10 +591,12 @@ def api_analyze(ticker):
         alignment = {}
         try:
             conn = get_db()
-            row  = conn.execute("SELECT alignment FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",(ticker.upper(),)).fetchone()
-            conn.close()
-            if row and row["alignment"]:
-                alignment = {"label":row["alignment"]}
+            try:
+                row = conn.execute("SELECT alignment FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",(ticker.upper(),)).fetchone()
+                if row and row["alignment"]:
+                    alignment = {"label":row["alignment"]}
+            finally:
+                conn.close()
         except Exception:
             pass
         # ── Bull / Bear signal ────────────────────────────────────────────────
@@ -775,12 +782,15 @@ def watchlist_add():
     user_id      = session.get("user", "default")
     if ticker:
         conn = get_db()
-        conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker, user_id))
-        conn.execute(
-            "INSERT INTO watchlist (ticker, user_id, target_price, notes) VALUES (?,?,?,?)",
-            (ticker, user_id, target_price, notes)
-        )
-        conn.commit(); conn.close()
+        try:
+            conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker, user_id))
+            conn.execute(
+                "INSERT INTO watchlist (ticker, user_id, target_price, notes) VALUES (?,?,?,?)",
+                (ticker, user_id, target_price, notes)
+            )
+            conn.commit()
+        finally:
+            conn.close()
     return redirect(url_for("watchlist"))
 
 @app.route("/watchlist/remove/<ticker>", methods=["POST"])
@@ -788,8 +798,11 @@ def watchlist_add():
 def watchlist_remove(ticker):
     user_id = session.get("user", "default")
     conn = get_db()
-    conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
-    conn.commit(); conn.close()
+    try:
+        conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
+        conn.commit()
+    finally:
+        conn.close()
     return redirect(url_for("watchlist"))
 
 # ── portfolio ─────────────────────────────────────────────────────────────────
@@ -865,8 +878,11 @@ def portfolio_add():
 def portfolio_remove(ticker):
     user_id = session.get("user", "default")
     conn = get_db()
-    conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
-    conn.commit(); conn.close()
+    try:
+        conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker.upper(), user_id))
+        conn.commit()
+    finally:
+        conn.close()
     return redirect(url_for("portfolio"))
 
 @app.route("/api/portfolio/prices")
@@ -877,11 +893,14 @@ def api_portfolio_prices():
     conn = get_db()
     rows = conn.execute("SELECT ticker, shares FROM portfolio WHERE user_id=?", (user_id,)).fetchall()
     tickers=[r["ticker"] for r in rows]; shares_map={r["ticker"]:r["shares"] for r in rows}
-    for t in tickers:
-        try: conn.execute("DELETE FROM price_cache WHERE ticker=?",(t,))
-        except: pass
-    conn.commit()
-    prices=batch_fetch_prices(tickers,conn); conn.close()
+    try:
+        for t in tickers:
+            try: conn.execute("DELETE FROM price_cache WHERE ticker=?",(t,))
+            except: pass
+        conn.commit()
+        prices=batch_fetch_prices(tickers,conn)
+    finally:
+        conn.close()
     return jsonify([{"ticker":t,"current_price":prices.get(t),"current_value":round(shares_map[t]*prices[t],2) if prices.get(t) else None} for t in tickers if prices.get(t)])
 
 # ── compare ───────────────────────────────────────────────────────────────────
@@ -926,10 +945,15 @@ def earnings_calendar():
 def backtest():
     result=None
     if request.method=="POST":
+        conn = None
         try:
             from features import run_backtest
-            conn=get_db(); result=run_backtest(conn); conn.close()
-        except Exception as e: result={"error":str(e)}
+            conn=get_db(); result=run_backtest(conn)
+        except Exception as e:
+            result={"error":str(e)}
+        finally:
+            if conn:
+                conn.close()
     return render_template("backtest.html",result=result)
 
 # ── portfolio earnings API ───────────────────────────────────────────────────
@@ -964,7 +988,12 @@ def api_alerts():
 @app.route("/api/alerts/clear",methods=["POST"])
 @login_required
 def api_alerts_clear():
-    conn=get_db(); conn.execute("UPDATE alerts SET seen=1 WHERE seen=0"); conn.commit(); conn.close()
+    conn=get_db()
+    try:
+        conn.execute("UPDATE alerts SET seen=1 WHERE seen=0")
+        conn.commit()
+    finally:
+        conn.close()
     return jsonify({"ok":True})
 
 @app.route("/api/push/test", methods=["POST"])
