@@ -34,6 +34,33 @@ MIN_POSITIONS         = 4    # flag if fewer than 4 holdings
 IDEAL_POSITIONS       = 8    # ideal number of positions
 
 
+def get_holding_signal(scan_score, gain_pct, streak=0) -> dict:
+    """Returns a buy/sell/hold signal for a single holding."""
+    if scan_score is None:
+        return {"emoji": "⚪", "label": "No Data", "color": "var(--muted)",
+                "detail": "Not yet in any scan"}
+    score = int(scan_score)
+    gain  = gain_pct or 0
+    if score >= 70 and gain > -5:
+        return {"emoji": "🔥", "label": "Strong Hold", "color": "var(--green)",
+                "detail": f"Score {score} — high conviction, consider adding"}
+    elif score >= 55 and gain > -10:
+        return {"emoji": "✅", "label": "Hold", "color": "var(--green)",
+                "detail": f"Score {score} — positive signals"}
+    elif gain > 25 and score < 50:
+        return {"emoji": "💰", "label": "Take Profit", "color": "var(--yellow)",
+                "detail": f"Up {gain:.0f}% but score dropped to {score} — trim?"}
+    elif gain < -15 and score < 45:
+        return {"emoji": "🔴", "label": "Consider Exit", "color": "var(--red)",
+                "detail": f"Down {abs(gain):.0f}% with weak score {score} — review thesis"}
+    elif score < 45:
+        return {"emoji": "👀", "label": "Watch", "color": "var(--yellow)",
+                "detail": f"Score {score} — signals weakening, monitor closely"}
+    else:
+        return {"emoji": "🟡", "label": "Neutral", "color": "var(--muted)",
+                "detail": f"Score {score} — mixed signals, hold"}
+
+
 def analyze_portfolio(holdings: list, conn=None) -> dict:
     """
     Analyzes a list of portfolio holdings and returns optimization data.
