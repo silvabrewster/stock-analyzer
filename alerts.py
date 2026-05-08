@@ -56,6 +56,8 @@ def save_alert(conn, ticker: str, alert_type: str, message: str):
         "portfolio":   "💼",
         "top5":        "🏆",
         "price_target":"🎯",
+        "insider_buy":   "📈",
+        "insider_sell":  "📉",
     }
     icon = icon_map.get(alert_type, "🔔")
     send_push_to_all(conn, {
@@ -64,6 +66,44 @@ def save_alert(conn, ticker: str, alert_type: str, message: str):
         "url":   f"/stock/{ticker}",
         "tag":   f"{alert_type}-{ticker}",
     })
+
+
+def check_insider_for_ticker(ticker, min_value=50000):
+    """Fetch recent insider trades for a ticker from openinsider.com."""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        url = f"http://openinsider.com/screener?s={ticker}&xp=1&xs=1&fd=14&cnt=10&action=1"
+        resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(resp.text, "html.parser")
+        table = soup.find("table", {"class": "tinytable"})
+        if not table:
+            return []
+        trades = []
+        rows = table.find_all("tr")[1:]
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) < 11:
+                continue
+            title = cells[4].get_text(strip=True)
+            trade_type_raw = cells[5].get_text(strip=True)
+            value_raw = cells[10].get_text(strip=True)
+            try:
+                value = float(value_raw.replace("$", "").replace(",", "").replace("+", "").replace("-", ""))
+            except Exception:
+                continue
+            if value < min_value:
+                continue
+            if "P" in trade_type_raw:
+                trade_type = "buy"
+            elif "S" in trade_type_raw and "P" not in trade_type_raw:
+                trade_type = "sell"
+            else:
+                continue
+            trades.append({"type": trade_type, "title": title, "value": value})
+        return trades
+    except Exception:
+        return []
 
 
 def check_alerts(conn):
@@ -209,6 +249,32 @@ def check_alerts(conn):
                     pass
         except Exception:
             pass
+
+        # ── Check 6: Insider activity on portfolio + watchlist stocks ────────
+        try:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            port_rows = aconn.execute("SELECT DISTINCT ticker FROM portfolio").fetchall()
+            watch_rows = aconn.execute("SELECT DISTINCT ticker FROM watchlist").fetchall()
+            all_tickers = list({r["ticker"] for r in port_rows + watch_rows})[:12]
+            if all_tickers:
+                with ThreadPoolExecutor(max_workers=4) as ex:
+                    futures = {ex.submit(check_insider_for_ticker, t): t for t in all_tickers}
+                    for future in as_completed(futures, timeout=20):
+                        ticker = futures[future]
+                        try:
+                            trades = future.result()
+                            for trade in trades[:1]:  # one alert per ticker
+                                atype = "insider_buy" if trade["type"] == "buy" else "insider_sell"
+                                key = f"{ticker}_{atype}"
+                                if key in fired_today:
+                                    continue
+                                action = "bought" if trade["type"] == "buy" else "sold"
+                                msg = f"{trade['title']} {action} ~${trade['value']:,.0f} in shares (last 14 days)"
+                                new_alerts.append((ticker, atype, msg))
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"Insider alert check error: {e}")
 
         # Save all new alerts
         for ticker, atype, message in new_alerts:

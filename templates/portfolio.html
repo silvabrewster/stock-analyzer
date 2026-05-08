@@ -299,7 +299,7 @@
     </div>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Ticker</th><th>Shares</th><th>Buy Price</th><th>Current Price</th><th>Cost Basis</th><th>Market Value</th><th>Gain / Loss</th><th>Return %</th><th>Scan Score</th><th>Notes</th><th></th></tr></thead>
+        <thead><tr><th>Ticker</th><th>Shares</th><th>Buy Price</th><th>Current Price</th><th>Cost Basis</th><th>Market Value</th><th>Gain / Loss</th><th>Return %</th><th>Scan Score</th><th>Signal</th><th>Notes</th><th></th></tr></thead>
         <tbody id="holdingsBody">
           {% for h in holdings %}
           {% set gain = h.current_value - h.cost_basis %}
@@ -314,6 +314,7 @@
             <td><div class="gain-bar-wrap"><div class="gain-bar"><div class="gain-fill" style="width:{{ [gain_pct|abs, 100]|min }}%;background:{{ 'var(--green)' if gain >= 0 else 'var(--red)' }};"></div></div><span class="{{ 'pos' if gain >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ '+' if gain >= 0 else '' }}${{ "{:,.0f}".format(gain) }}</span></div></td>
             <td><span class="{{ 'pos' if gain_pct >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">{{ '+' if gain_pct >= 0 else '' }}{{ "%.1f"|format(gain_pct) }}%</span></td>
             <td>{% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}">{{ h.scan_score|int }}</span>{% else %}<span style="color:var(--muted);font-size:11px;">not scanned</span>{% endif %}</td>
+            <td>{% if h.signal %}<span title="{{ h.signal.detail }}" style="cursor:help;font-size:12px;font-weight:600;color:{{ h.signal.color }};">{{ h.signal.emoji }} {{ h.signal.label }}</span>{% else %}<span style="color:var(--muted);">–</span>{% endif %}</td>
             <td style="color:var(--muted);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">{{ h.notes or '–' }}</td>
             <td><form method="POST" action="{{ url_for('portfolio_remove', ticker=h.ticker) }}" style="display:inline;" onsubmit="return confirm('Remove {{ h.ticker }}?')"><button type="submit" class="remove-btn">✕</button></form></td>
           </tr>

@@ -195,6 +195,13 @@
 </div>
 
 <main>
+<div id="notif-banner" style="display:none;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:10px 16px;margin-bottom:12px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+  <span style="font-size:13px;color:var(--text);">🔔 Enable push notifications to get real-time alerts for breakouts, insider buys, and portfolio moves.</span>
+  <div style="display:flex;gap:8px;">
+    <button onclick="enableNotifications()" style="background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0b0e14;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">Enable Alerts</button>
+    <button onclick="document.getElementById('notif-banner').style.display='none'" style="background:none;border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;">Later</button>
+  </div>
+</div>
   {% if market %}
   <div class="market-bar">
     <div class="mkt-card"><div class="mkt-label">S&P 500</div><div class="mkt-value">{{ market.sp500 or '–' }}</div>{% if market.sp500_chg %}<div class="mkt-chg {{ 'up' if market.sp500_chg >= 0 else 'down' }}">{{ '▲' if market.sp500_chg >= 0 else '▼' }}{{ '%0.2f'|format(market.sp500_chg|abs) }}%</div>{% endif %}</div>
@@ -381,7 +388,20 @@ const VAPID_PUBLIC='BP6c5_jsEuyoThDOWpYnmBCCo73QQSBDAvLPLGjU2WiBh7uVnrTFSZkZbADl
 function urlB64(b){const p='='.repeat((4-b.length%4)%4),s=(b+p).replace(/-/g,'+').replace(/_/g,'/');return new Uint8Array([...atob(s)].map(c=>c.charCodeAt(0)));}
 async function subscribePush(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return;try{const reg=await navigator.serviceWorker.ready,perm=await Notification.requestPermission();if(perm!=='granted')return;const ex=await reg.pushManager.getSubscription();const sub=ex||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(VAPID_PUBLIC)});await fetch('/api/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});}catch(e){console.log('Push failed:',e);}}
 async function loadAlerts(){try{const r=await fetch('/api/alerts'),d=await r.json();if(!d.alerts||!d.alerts.length){document.getElementById('alert-badge').style.display='none';return;}const b=document.getElementById('alert-badge');b.textContent=d.alerts.length;b.style.display='inline-flex';const colors={breakout:'var(--green)',volume:'var(--orange)',portfolio:'var(--blue)',top5:'var(--gold)'};const icons={breakout:'📈',volume:'⚡',portfolio:'💼',top5:'🏆'};document.getElementById('alert-list').innerHTML=d.alerts.map(a=>`<div style="padding:12px 14px;border-radius:8px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-left:3px solid ${colors[a.type]||'var(--muted)'}"><div style="font-size:13px;font-weight:600;margin-bottom:3px;">${icons[a.type]||'🔔'} <a href="/stock/${a.ticker}" style="color:var(--gold);text-decoration:none;">${a.ticker}</a> — ${a.message}</div><div style="font-size:11px;color:var(--muted);">${a.created_at}</div></div>`).join('');}catch(e){}}
-window.addEventListener('load',()=>{loadAlerts();subscribePush();});
+window.addEventListener('load',()=>{loadAlerts();checkNotifStatus();});
+async function checkNotifStatus(){
+  if(!('Notification' in window)||!('serviceWorker' in navigator))return;
+  if(Notification.permission==='granted'){subscribePush();return;}
+  if(Notification.permission==='denied')return;
+  // Show banner prompting for permission
+  const banner=document.getElementById('notif-banner');
+  if(banner)banner.style.display='flex';
+}
+async function enableNotifications(){
+  const banner=document.getElementById('notif-banner');
+  if(banner)banner.style.display='none';
+  await subscribePush();
+}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
 </script>
 </body>

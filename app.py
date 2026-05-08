@@ -804,8 +804,11 @@ def portfolio():
         ticker=row["ticker"]; shares=row["shares"]; buy_price=row["buy_price"]
         cost_basis=shares*buy_price; current_price=prices.get(ticker)
         current_value=shares*(current_price or buy_price)
-        scan=conn.execute("SELECT score FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",(ticker,)).fetchone()
-        holdings.append({"ticker":ticker,"shares":shares,"buy_price":buy_price,"cost_basis":cost_basis,"current_price":current_price,"current_value":current_value,"notes":row["notes"],"scan_score":scan["score"] if scan else None,"alloc_pct":0})
+        gain_pct=(current_value-cost_basis)/cost_basis*100 if cost_basis else 0
+        scan=conn.execute("SELECT score,streak FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",(ticker,)).fetchone()
+        scan_score=scan["score"] if scan else None
+        streak=scan["streak"] if scan else 0
+        holdings.append({"ticker":ticker,"shares":shares,"buy_price":buy_price,"cost_basis":cost_basis,"current_price":current_price,"current_value":current_value,"gain_pct":gain_pct,"notes":row["notes"],"scan_score":scan_score,"streak":streak or 0,"alloc_pct":0})
         total_value+=current_value; total_cost+=cost_basis
     for h in holdings:
         h["alloc_pct"]=round(h["current_value"]/total_value*100,1) if total_value else 0
@@ -813,6 +816,9 @@ def portfolio():
     total_gain_pct=(total_gain/total_cost*100) if total_cost else 0
     scored=[h["scan_score"] for h in holdings if h["scan_score"]]
     avg_score=round(sum(scored)/len(scored)) if scored else None
+    from portfolio_optimizer import get_holding_signal
+    for h in holdings:
+        h["signal"] = get_holding_signal(h["scan_score"], h.get("gain_pct", 0), h.get("streak", 0))
     optimization=None
     try:
         from portfolio_optimizer import analyze_portfolio
@@ -978,6 +984,14 @@ def api_push_subscribe():
             conn=get_db(); conn.execute("INSERT OR REPLACE INTO push_subscriptions (endpoint,p256dh,auth) VALUES (?,?,?)",(endpoint,p256dh,auth)); conn.commit(); conn.close()
         return jsonify({"ok":True})
     except Exception as e: return jsonify({"ok":False,"error":str(e)})
+
+@app.route("/api/push/status")
+@login_required
+def api_push_status():
+    conn = get_db()
+    count = conn.execute("SELECT COUNT(*) as c FROM push_subscriptions").fetchone()["c"]
+    conn.close()
+    return jsonify({"subscriptions": count})
 
 # ── misc ──────────────────────────────────────────────────────────────────────
 
