@@ -157,7 +157,7 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 20) -> dict:
                 "SELECT price, fetched_at FROM price_cache WHERE ticker = ?", (ticker,)
             ).fetchone()
             if row:
-                age = (now - datetime.fromisoformat(row["fetched_at"])).total_seconds() / 60
+                age = (now - datetime.fromisoformat(row["fetched_at"].replace(" ","T").replace("Z","+00:00").split("+")[0])).total_seconds() / 60
                 if age < max_age_minutes:
                     prices[ticker] = round(float(row["price"]), 2)
                     continue
@@ -179,7 +179,10 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 20) -> dict:
                     except Exception: pass
                 except Exception:
                     try:
-                        fi = yf.Ticker(ticker).fast_info
+                        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FT
+                        with ThreadPoolExecutor(max_workers=1) as _ex:
+                            _f = _ex.submit(lambda t=ticker: yf.Ticker(t).fast_info)
+                            fi = _f.result(timeout=8)
                         p  = fi.last_price or fi.regular_market_price
                         if p:
                             prices[ticker] = round(float(p),2)
@@ -192,7 +195,10 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 20) -> dict:
             print(f"Batch fetch error: {e}")
             for ticker in need_fetch:
                 try:
-                    fi = yf.Ticker(ticker).fast_info
+                    from concurrent.futures import ThreadPoolExecutor
+                    with ThreadPoolExecutor(max_workers=1) as _ex:
+                        _f = _ex.submit(lambda t=ticker: yf.Ticker(t).fast_info)
+                        fi = _f.result(timeout=8)
                     p  = fi.last_price or fi.regular_market_price
                     if p: prices[ticker] = round(float(p),2)
                 except: pass
@@ -286,8 +292,12 @@ def dashboard():
     except Exception as e:
         print(f"Regime error: {e}")
 
-    maybe_check_alerts(conn)
-    conn.close()
+    try:
+        maybe_check_alerts(conn)
+    except Exception as e:
+        print(f"Alert check error: {e}")
+    finally:
+        conn.close()
     return render_template("dashboard.html",
         stocks=stocks, market=market,
         latest_date=latest_date, streaks=streaks,
@@ -461,7 +471,8 @@ def api_analyze(ticker):
     try:
         t = yf.Ticker(ticker.upper())
         try:
-            fi    = t.fast_info
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                fi = ex.submit(lambda: t.fast_info).result(timeout=8)
             price = float(fi.last_price or fi.regular_market_price or 0)
         except Exception:
             price = 0
@@ -681,7 +692,7 @@ def stock_detail(ticker):
     try:
         row = conn.execute("SELECT price, fetched_at FROM price_cache WHERE ticker=?",(ticker,)).fetchone()
         if row:
-            age = (datetime.now()-datetime.fromisoformat(row["fetched_at"])).total_seconds()/60
+            age = (datetime.now()-datetime.fromisoformat(row["fetched_at"].replace(" ","T").replace("Z","+00:00").split("+")[0])).total_seconds()/60
             if age < 60:
                 live_price = round(float(row["price"]),2)
     except Exception: pass
@@ -808,15 +819,22 @@ def portfolio():
     total_gain_pct=(total_gain/total_cost*100) if total_cost else 0
     scored=[h["scan_score"] for h in holdings if h["scan_score"]]
     avg_score=round(sum(scored)/len(scored)) if scored else None
-    from portfolio_optimizer import get_holding_signal
-    for h in holdings:
-        h["signal"] = get_holding_signal(h["scan_score"], h.get("gain_pct", 0), h.get("streak", 0))
+    try:
+        from portfolio_optimizer import get_holding_signal
+        for h in holdings:
+            h["signal"] = get_holding_signal(h["scan_score"], h.get("gain_pct", 0), h.get("streak", 0))
+    except Exception as e:
+        print(f"Signal error: {e}")
+        for h in holdings:
+            h.setdefault("signal", None)
     optimization=None
     try:
         from portfolio_optimizer import analyze_portfolio
         optimization=analyze_portfolio(holdings,conn)
-    except Exception as e: print(f"Optimization error: {e}")
-    conn.close()
+    except Exception as e:
+        print(f"Optimization error: {e}")
+    finally:
+        conn.close()
     return render_template("portfolio.html",holdings=holdings,total_value=total_value,total_cost=total_cost,total_gain=total_gain,total_gain_pct=total_gain_pct,avg_score=avg_score,alerts=None,optimization=optimization)
 
 @app.route("/portfolio/add", methods=["POST"])
@@ -952,8 +970,8 @@ def api_alerts_clear():
 @app.route("/api/push/test", methods=["POST"])
 @login_required
 def api_push_test():
+    conn = get_db()
     try:
-        conn = get_db()
         from alerts import send_push_to_all
         send_push_to_all(conn, {
             "title": "📈 Convergence — Test",
@@ -961,10 +979,11 @@ def api_push_test():
             "url":   "/",
             "tag":   "test",
         })
-        conn.close()
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+    finally:
+        conn.close()
 
 @app.route("/api/push/subscribe",methods=["POST"])
 @login_required
