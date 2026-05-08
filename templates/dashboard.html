@@ -241,7 +241,18 @@
       <div class="page-title">Today's Top Picks</div>
       <div class="scan-date">{{ latest_date }} · 7 sources · Signal Alignment</div>
     </div>
+    <button id="runScanBtn" onclick="triggerScan()" style="background:var(--surf);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:7px 14px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;">⟳ Run Scan</button>
   </div>
+  <script>
+  function triggerScan(){
+    const btn=document.getElementById('runScanBtn');
+    btn.textContent='⏳ Scanning…';btn.disabled=true;btn.style.color='var(--gold)';
+    fetch('/run-scan',{method:'POST'}).then(r=>r.json()).then(d=>{
+      btn.textContent='✓ Scan started';
+      setTimeout(()=>{btn.textContent='⟳ Run Scan';btn.disabled=false;btn.style.color='var(--muted)';},8000);
+    }).catch(()=>{btn.textContent='⟳ Run Scan';btn.disabled=false;btn.style.color='var(--muted)';});
+  }
+  </script>
 
   {% if streaks %}
   <div class="streaks-row">

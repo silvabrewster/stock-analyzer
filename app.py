@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "stockconvergence2026")
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 APP_PASSWORD   = os.environ.get("APP_PASSWORD", "convergence2026")
 
 # ── database ──────────────────────────────────────────────────────────────────
@@ -240,6 +241,8 @@ def login():
     error = None
     if request.method == "POST":
         if request.form.get("password") == APP_PASSWORD:
+            if request.form.get("remember_me"):
+                session.permanent = True
             session["logged_in"] = True
             session["user"] = request.form.get("username","").strip().lower() or "default"
             return redirect(url_for("dashboard"))
@@ -1120,8 +1123,80 @@ def _keepalive_thread():
     t = threading.Thread(target=_loop, daemon=True)
     t.start()
 
+
+_scan_running = False
+
+def _do_scan():
+    global _scan_running
+    if _scan_running:
+        return
+    _scan_running = True
+    try:
+        from scheduler import run_analyzer
+        print(f"[scan] Starting daily scan...")
+        df, market, warning, alignments = run_analyzer()
+        from market_regime import detect_market_regime
+        try:
+            top_stocks = df.head(20).to_dict("records")
+            mapped = [{"score": r.get("Consensus Score", 0), "insider": r.get("Insider Buy", "–")} for r in top_stocks]
+            regime = detect_market_regime(market, mapped)
+            market["regime"]            = regime.get("regime", "unknown")
+            market["regime_label"]      = regime.get("label", "")
+            market["regime_confidence"] = regime.get("confidence", 0)
+        except Exception as e:
+            print(f"[scan] Regime error: {e}")
+        try:
+            from features import generate_market_brief
+            market["ai_brief"] = generate_market_brief(df.head(5).to_dict("records"), market)
+        except Exception as e:
+            print(f"[scan] AI brief error: {e}")
+        save_scan_to_db(df, market)
+        print(f"[scan] Done — {len(df)} stocks saved.")
+    except Exception as e:
+        print(f"[scan] Error: {e}")
+    finally:
+        _scan_running = False
+
+
+def _daily_scan_thread():
+    import threading, time as _time
+    def _loop():
+        _time.sleep(90)  # let app fully start
+        while True:
+            now = datetime.utcnow()
+            today = now.strftime("%Y-%m-%d")
+            # Run at 14:00 UTC (7 AM Pacific) if not already done today
+            if now.hour == 14 and now.minute < 5:
+                try:
+                    conn = get_db()
+                    try:
+                        row = conn.execute("SELECT COUNT(*) as c FROM scans WHERE scan_date=?", (today,)).fetchone()
+                        already_done = row and row["c"] > 0
+                    finally:
+                        conn.close()
+                    if not already_done:
+                        _do_scan()
+                except Exception as e:
+                    print(f"[scan-thread] {e}")
+                _time.sleep(360)  # sleep 6 min after attempting
+            else:
+                _time.sleep(30)
+    t = threading.Thread(target=_loop, daemon=True)
+    t.start()
+
+
+@app.route("/run-scan", methods=["POST"])
+@login_required
+def run_scan():
+    import threading
+    t = threading.Thread(target=_do_scan, daemon=True)
+    t.start()
+    return jsonify({"ok": True, "message": "Scan started — check back in ~2 minutes."})
+
+
 init_db()
 _keepalive_thread()
+_daily_scan_thread()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
