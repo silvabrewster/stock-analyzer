@@ -126,8 +126,11 @@ def save_scan_to_db(df, market: dict):
         def safe(key, default=None):
             v = row.get(key, default)
             if v in ("n/a","–","",None): return default
-            try: return float(str(v).replace("%","").replace("$","").strip())
-            except: return str(v) if isinstance(v,str) else default
+            try:
+                import re
+                cleaned = re.sub(r'[^\d.\-]', '', str(v))
+                return float(cleaned) if cleaned else default
+            except: return default
         streak_raw = str(row.get("Streak","0")).replace("🔥","").replace("d","").strip()
         try: streak_int = int(streak_raw)
         except: streak_int = 0
