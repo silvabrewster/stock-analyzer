@@ -181,7 +181,7 @@ def generate_picks(conn) -> list:
 
     stocks = conn.execute("""
         SELECT ticker, score, sector, upside_pct, price, short_pct,
-               week52_pos, vol_spike, streak, alignment
+               week52_pos, vol_spike, streak
         FROM scans WHERE scan_date=? ORDER BY score DESC LIMIT 15
     """, (latest_date,)).fetchall()
 
@@ -194,7 +194,7 @@ def generate_picks(conn) -> list:
         stock_lines.append(
             f"{s['ticker']}: score={s['score']}, sector={s['sector']}, "
             f"upside={s['upside_pct']}%, 52w_pos={s['week52_pos']}%, "
-            f"streak={s['streak']}, alignment={s['alignment']}, short%={s['short_pct']}"
+            f"streak={s['streak']}, short%={s['short_pct']}"
         )
     stocks_text = "\n".join(stock_lines)
 
