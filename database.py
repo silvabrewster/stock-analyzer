@@ -22,7 +22,7 @@ def get_sqlite():
     return conn
 
 def get_postgres(url=None):
-    conn = psycopg2.connect(url or os.environ.get("DATABASE_URL"))
+    conn = psycopg2.connect(url or os.environ.get("DATABASE_URL"), options="-c search_path=public")
     conn.autocommit = False
     return PostgresWrapper(conn)
 
