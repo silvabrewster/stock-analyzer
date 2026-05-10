@@ -23,6 +23,10 @@ def get_sqlite():
 
 def get_postgres(url=None):
     conn = psycopg2.connect(url or os.environ.get("DATABASE_URL"), options="-c search_path=public")
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SET search_path TO public")
+    cur.close()
     conn.autocommit = False
     return PostgresWrapper(conn)
 
