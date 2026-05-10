@@ -134,16 +134,15 @@ def save_scan_to_db(df, market: dict):
         conn.execute("""
             INSERT INTO scans (scan_date,ticker,score,sources,yahoo_sb,zacks,morningstar,
             insider,eps_rev,beats_sp,price,upside_pct,beta,div_yield,week52_pos,
-            short_pct,vol_spike,streak,is_new,sector,alignment)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            short_pct,vol_spike,streak,is_new,sector)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (today, row.get("Ticker"), safe("Consensus Score"), row.get("Sources Agree"),
               row.get("Yahoo SB"), row.get("Zacks #1"), row.get("Morningstar ★★★"),
               row.get("Insider Buy"), row.get("EPS Rev ↑"), row.get("Beats S&P"),
               safe("Price"), safe("Upside %"), safe("Beta"), safe("Div Yield"),
               safe("52w Position"), safe("Short %"),
               "1" if row.get("Vol Spike") else "0",
-              streak_int, row.get("New?",""), row.get("Sector","Unknown"),
-              row.get("Alignment","")))
+              streak_int, row.get("New?",""), row.get("Sector","Unknown")))
     conn.commit()
     conn.close()
 
