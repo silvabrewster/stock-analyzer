@@ -13,6 +13,7 @@ The AI looks at:
 Returns actionable insights shown on the History page.
 """
 
+import os
 import requests
 import json
 from datetime import datetime, timedelta
@@ -31,7 +32,7 @@ def get_ai_insights(conn) -> dict:
                 WHERE key = 'ai_insights' LIMIT 1
             """).fetchone()
             if cached:
-                age = (datetime.now() - datetime.fromisoformat(cached["updated_at"])).total_seconds()
+                age = (datetime.now() - datetime.fromisoformat(cached["updated_at"].replace(" ", "T"))).total_seconds()
                 if age < 86400:  # 24 hours
                     return json.loads(cached["value"])
         except Exception:
@@ -198,9 +199,13 @@ Format as JSON with key "insights" containing a list of 3 strings."""
     try:
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type":      "application/json",
+                "x-api-key":         os.environ.get("ANTHROPIC_API_KEY", ""),
+                "anthropic-version": "2023-06-01",
+            },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-6",
                 "max_tokens": 400,
                 "messages": [{"role": "user", "content": prompt}]
             },

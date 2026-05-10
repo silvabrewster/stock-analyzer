@@ -187,16 +187,20 @@ def check_alerts(conn):
 
         # ── Check 4: Portfolio holdings ±5% ───────────────────────────────
         try:
-            portfolio = aconn.execute("SELECT ticker, buy_price FROM portfolio").fetchall()
+            portfolio = aconn.execute("SELECT DISTINCT ticker, buy_price FROM portfolio").fetchall()
             import yfinance as yf
+            from concurrent.futures import ThreadPoolExecutor as _TPE, TimeoutError as _FT
+            def _get_price(t):
+                fi = yf.Ticker(t).fast_info
+                return fi.last_price or fi.regular_market_price
             for holding in portfolio:
                 ticker    = holding["ticker"]
                 buy_price = holding["buy_price"]
                 key       = f"{ticker}_portfolio"
                 if key in fired_today: continue
                 try:
-                    fi    = yf.Ticker(ticker).fast_info
-                    price = fi.last_price or fi.regular_market_price
+                    with _TPE(max_workers=1) as _ex:
+                        price = _ex.submit(_get_price, ticker).result(timeout=8)
                     if price and buy_price:
                         chg = (float(price)-float(buy_price))/float(buy_price)*100
                         if abs(chg) >= 5:
@@ -227,11 +231,13 @@ def check_alerts(conn):
                     current_price = None
                     if cached:
                         from datetime import datetime as dt
-                        age = (dt.now()-dt.fromisoformat(cached["fetched_at"])).total_seconds()/60
+                        age = (dt.now()-dt.fromisoformat(cached["fetched_at"].replace(" ","T").replace("Z","+00:00").split("+")[0])).total_seconds()/60
                         if age < 30:
                             current_price = float(cached["price"])
                     if not current_price:
-                        fi = yf.Ticker(ticker).fast_info
+                        from concurrent.futures import ThreadPoolExecutor as _TPE2
+                        with _TPE2(max_workers=1) as _ex2:
+                            fi = _ex2.submit(lambda t=ticker: yf.Ticker(t).fast_info).result(timeout=8)
                         current_price = fi.last_price or fi.regular_market_price
                         if current_price: current_price = float(current_price)
 

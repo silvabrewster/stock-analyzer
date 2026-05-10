@@ -120,6 +120,30 @@
     .empty-state { text-align: center; padding: 48px; color: var(--muted); }
     .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── mobile holdings cards ── */
+    .mobile-holdings { display: none; flex-direction: column; gap: 10px; padding: 12px; }
+    .holding-card { background: var(--surf2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .holding-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .holding-card-ticker { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 700; color: var(--gold); }
+    .holding-card-signal { font-size: 12px; font-weight: 600; }
+    .holding-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .holding-stat { display: flex; flex-direction: column; gap: 2px; }
+    .holding-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .holding-stat-value { font-family: 'DM Mono', monospace; font-size: 14px; }
+    .holding-card-actions { display: flex; justify-content: space-between; align-items: center; }
+    .holding-card-notes { font-size: 11px; color: var(--muted); }
+
+    @media (max-width: 700px) {
+      .table-scroll { display: none; }
+      .mobile-holdings { display: flex; }
+      .add-form { flex-direction: column; }
+      .form-group { width: 100%; }
+      .form-group input { width: 100% !important; }
+      .add-btn { width: 100%; padding: 12px; }
+      .summary-row { grid-template-columns: 1fr 1fr; }
+      .alloc-card { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -322,6 +346,55 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Mobile card view -->
+    <div class="mobile-holdings">
+      {% for h in holdings %}
+      {% set gain = h.current_value - h.cost_basis %}
+      {% set gain_pct = (gain / h.cost_basis * 100) if h.cost_basis else 0 %}
+      <div class="holding-card">
+        <div class="holding-card-top">
+          <div>
+            <a href="{{ url_for('stock_detail', ticker=h.ticker) }}" class="holding-card-ticker">{{ h.ticker }}</a>
+            {% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}" style="margin-left:8px;">{{ h.scan_score|int }}</span>{% endif %}
+          </div>
+          {% if h.signal %}<span class="holding-card-signal" style="color:{{ h.signal.color }};">{{ h.signal.emoji }} {{ h.signal.label }}</span>{% endif %}
+        </div>
+        <div class="holding-card-grid">
+          <div class="holding-stat">
+            <div class="holding-stat-label">Current Price</div>
+            <div class="holding-stat-value price-cell-{{ h.ticker }}">{% if h.current_price %}${{ "%.2f"|format(h.current_price) }}{% else %}<span style="color:var(--muted);">–</span>{% endif %}</div>
+          </div>
+          <div class="holding-stat">
+            <div class="holding-stat-label">Return</div>
+            <div class="holding-stat-value {{ 'pos' if gain_pct >= 0 else 'neg' }}">{{ '+' if gain_pct >= 0 else '' }}{{ "%.1f"|format(gain_pct) }}%</div>
+          </div>
+          <div class="holding-stat">
+            <div class="holding-stat-label">Market Value</div>
+            <div class="holding-stat-value value-cell-{{ h.ticker }}">${{ "{:,.0f}".format(h.current_value) }}</div>
+          </div>
+          <div class="holding-stat">
+            <div class="holding-stat-label">Gain / Loss</div>
+            <div class="holding-stat-value {{ 'pos' if gain >= 0 else 'neg' }}">{{ '+' if gain >= 0 else '' }}${{ "{:,.0f}".format(gain) }}</div>
+          </div>
+          <div class="holding-stat">
+            <div class="holding-stat-label">Shares × Buy Price</div>
+            <div class="holding-stat-value" style="color:var(--muted);font-size:12px;">{{ h.shares }} × ${{ "%.2f"|format(h.buy_price) }}</div>
+          </div>
+          <div class="holding-stat">
+            <div class="holding-stat-label">Allocation</div>
+            <div class="holding-stat-value" style="color:var(--muted);">{{ "%.1f"|format(h.alloc_pct) }}%</div>
+          </div>
+        </div>
+        <div class="holding-card-actions">
+          <span class="holding-card-notes">{{ h.notes or '' }}</span>
+          <form method="POST" action="{{ url_for('portfolio_remove', ticker=h.ticker) }}" onsubmit="return confirm('Remove {{ h.ticker }}?')">
+            <button type="submit" class="remove-btn">✕ Remove</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
   {% else %}
   <div class="holdings-card"><div class="empty-state"><div style="font-size:40px;margin-bottom:12px;">💼</div><p>No holdings yet. Add your first stock above.</p></div></div>
@@ -347,7 +420,7 @@
 
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
-async function loadPortfolioEarnings(){const wrap=document.getElementById('earnings-body');if(!wrap)return;try{const r=await fetch('/api/portfolio/earnings');const data=await r.json();if(!Array.isArray(data)||!data.length){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">No upcoming earnings dates found for your holdings.</div>';return;}const rows=data.sort((a,b)=>a.days_away-b.days_away).map(e=>{const urgent=e.days_away<=7;const c=urgent?'var(--red)':'var(--muted)';return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:12px;"><a href="/stock/${e.ticker}" style="font-family:'DM Mono',monospace;font-weight:600;color:var(--gold);text-decoration:none;">${e.ticker}</a><span style="font-size:12px;color:var(--muted);">${e.date||'–'}</span></div><span style="font-size:12px;color:${c};font-weight:${urgent?'600':'400'};">${urgent?'🔔 ':''}${e.days_away===0?'Today':e.days_away===1?'Tomorrow':e.days_away+' days'}</span></div>`}).join('');wrap.innerHTML=rows;}catch(e){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">Could not load earnings data.</div>';}}
+async function loadPortfolioEarnings(){const wrap=document.getElementById('earnings-body');if(!wrap)return;try{const r=await fetch('/api/portfolio/earnings');const data=await r.json();if(!Array.isArray(data)||!data.length){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">No upcoming earnings dates found for your holdings.</div>';return;}const rows=data.sort((a,b)=>a.days_away-b.days_away).map(e=>{const urgent=e.days_away>=0&&e.days_away<=7;const c=urgent?'var(--red)':'var(--muted)';return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:12px;"><a href="/stock/${e.ticker}" style="font-family:'DM Mono',monospace;font-weight:600;color:var(--gold);text-decoration:none;">${e.ticker}</a><span style="font-size:12px;color:var(--muted);">${e.date||'–'}</span></div><span style="font-size:12px;color:${c};font-weight:${urgent?'600':'400'};">${urgent?'🔔 ':''}${e.days_away<0?'Recently reported':e.days_away===0?'Today':e.days_away===1?'Tomorrow':e.days_away+' days'}</span></div>`}).join('');wrap.innerHTML=rows;}catch(e){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">Could not load earnings data.</div>';}}
 window.addEventListener('load',()=>{loadPortfolioEarnings();});
 function refreshPrices(){const btn=document.querySelector('.refresh-btn');btn.innerHTML='<span class="loading-spinner"></span>Refreshing…';btn.disabled=true;fetch('/api/portfolio/prices').then(r=>r.json()).then(data=>{data.forEach(h=>{const p=document.querySelector(`.price-cell-${h.ticker}`),v=document.querySelector(`.value-cell-${h.ticker}`);if(p&&h.current_price)p.textContent='$'+h.current_price.toFixed(2);if(v&&h.current_value)v.textContent='$'+h.current_value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});});btn.innerHTML='↻ Refresh Prices';btn.disabled=false;}).catch(()=>{btn.innerHTML='↻ Refresh Prices';btn.disabled=false;});}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');

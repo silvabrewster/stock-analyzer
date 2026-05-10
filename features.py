@@ -370,10 +370,13 @@ def get_earnings_calendar(tickers: list) -> list:
     results = []
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(_fetch_earnings_single, t): t for t in tickers}
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                results.append(result)
+        for future in as_completed(futures, timeout=20):
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+            except Exception:
+                pass
     return sorted(results, key=lambda x: x["days_away"])
 
 

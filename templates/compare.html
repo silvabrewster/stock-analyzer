@@ -19,6 +19,7 @@
       --border: #1e2535; --gold: #c9a84c; --gold2: #f0d080;
       --text: #e8eaf0; --muted: #6b7280;
       --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+      --nav-h: 56px;
     }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
     body::before {
@@ -27,18 +28,28 @@
         linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
       background-size: 40px 40px; pointer-events: none;
     }
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(11,14,20,0.92); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 32px; height: 60px;
-    }
-    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 18px; display: flex; align-items: center; gap: 10px; }
-    .nav-links { display: flex; gap: 8px; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; transition: color 0.15s, background 0.15s; }
-    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf); }
+    nav { position: sticky; top: 0; z-index: 200; background: rgba(11,14,20,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: var(--nav-h); gap: 12px; }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 17px; display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hamburger { display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surf); flex-shrink: 0; }
+    .hamburger span { width: 18px; height: 2px; background: var(--text); border-radius: 1px; transition: all 0.2s; }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px,4px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
+    .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
     .nav-links a.logout { color: var(--red); }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .mobile-menu a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+    .mobile-menu a:hover { color: var(--text); background: var(--surf2); }
+    .mobile-menu a.active { color: var(--gold); background: rgba(201,168,76,0.08); }
+    .mobile-menu a.logout { color: var(--red); }
+    @media (max-width: 768px) { .nav-links { display: none; } main { padding: 16px; } .compare-form { flex-direction: column; } .compare-form input { width: 100% !important; } .compare-btn { width: 100%; } }
     main { position: relative; z-index: 1; padding: 32px; max-width: 1100px; margin: 0 auto; }
     .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 6px; }
     .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
@@ -108,20 +119,37 @@
 </head>
 <body>
 <nav>
-  <div class="nav-logo">📈 Convergence</div>
-    <div class="nav-links">
+  <div class="nav-logo"><div class="live-dot"></div> 📈 Convergence</div>
+  <div class="nav-links">
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     <a href="{{ url_for('history') }}">History</a>
     <a href="{{ url_for('sectors') }}">Sectors</a>
     <a href="{{ url_for('watchlist') }}">Watchlist</a>
-    <a href="{{ url_for('compare') }}">Compare</a>
+    <a href="{{ url_for('portfolio') }}">Portfolio</a>
+    <a href="{{ url_for('compare') }}" class="active">Compare</a>
     <a href="{{ url_for('backtest') }}">Backtest</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">Claude's Picks</a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></div>
 </nav>
-
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mobile-menu-grid">
+    <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+    <a href="{{ url_for('history') }}">📅 History</a>
+    <a href="{{ url_for('sectors') }}">🗺️ Sectors</a>
+    <a href="{{ url_for('watchlist') }}">⭐ Watchlist</a>
+    <a href="{{ url_for('portfolio') }}">💼 Portfolio</a>
+    <a href="{{ url_for('compare') }}" class="active">⚖️ Compare</a>
+    <a href="{{ url_for('backtest') }}">📊 Backtest</a>
+    <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
+    <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">🤖 Claude's Picks</a>
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+</div>
 <main>
   <div class="page-title">⚖️ Compare Stocks</div>
   <p class="page-sub">Side-by-side comparison of up to 3 stocks across all signals and metrics.</p>
@@ -251,6 +279,8 @@
           .catch(e => console.log('SW failed:', e));
       });
     }
+    function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+    document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
   </script>
 </body>
 </html>
