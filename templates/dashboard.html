@@ -28,7 +28,7 @@
     .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px,-4px); }
     .nav-links { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
     .nav-links::-webkit-scrollbar { display: none; }
-    .nav-links a { color: var(--muted); text-decoration: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 4px 7px; border-radius: 6px; font-size: 11px; font-weight: 500; transition: color 0.15s, background 0.15s; white-space: nowrap; }
     .nav-links a:hover, .nav-links a.active { color: var(--text); background: var(--surf2); }
     .nav-links a.logout { color: var(--red); }
     .mobile-menu { display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; background: rgba(11,14,20,0.98); border-bottom: 1px solid var(--border); z-index: 199; padding: 12px 16px; flex-direction: column; gap: 4px; backdrop-filter: blur(16px); }
@@ -202,7 +202,7 @@
   <span style="font-size:13px;color:var(--text);">🔔 Enable push notifications to get real-time alerts for breakouts, insider buys, and portfolio moves.</span>
   <div style="display:flex;gap:8px;">
     <button onclick="enableNotifications()" style="background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0b0e14;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">Enable Alerts</button>
-    <button onclick="document.getElementById('notif-banner').style.display='none'" style="background:none;border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;">Later</button>
+    <button onclick="localStorage.setItem('notif-dismissed','1');document.getElementById('notif-banner').style.display='none'" style="background:none;border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;">Later</button>
   </div>
 </div>
   {% if market %}
@@ -407,11 +407,12 @@ async function checkNotifStatus(){
   if(!('Notification' in window)||!('serviceWorker' in navigator))return;
   if(Notification.permission==='granted'){subscribePush();return;}
   if(Notification.permission==='denied')return;
-  // Show banner prompting for permission
+  if(localStorage.getItem('notif-dismissed'))return;
   const banner=document.getElementById('notif-banner');
   if(banner)banner.style.display='flex';
 }
 async function enableNotifications(){
+  localStorage.removeItem('notif-dismissed');
   const banner=document.getElementById('notif-banner');
   if(banner)banner.style.display='none';
   await subscribePush();

@@ -20,21 +20,21 @@ import requests
 from datetime import datetime, timedelta
 
 
-ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL         = "claude-sonnet-4-6"
+MODEL = "claude-sonnet-4-6"
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _claude(prompt: str, max_tokens: int = 600) -> str:
-    if not ANTHROPIC_KEY:
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
         return ""
     try:
         r = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={
                 "Content-Type":      "application/json",
-                "x-api-key":         ANTHROPIC_KEY,
+                "x-api-key":         key,
                 "anthropic-version": "2023-06-01",
             },
             json={
