@@ -161,6 +161,7 @@
     <a href="{{ url_for('backtest') }}">Backtest</a>
     <a href="{{ url_for('momentum') }}">Momentum</a>
     <a href="{{ url_for('analyze') }}">Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">Claude's Picks</a>
     <a href="#" id="nav-bell" onclick="toggleAlertPanel(event)" style="position:relative;padding:5px 10px;">🔔<span id="alert-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:14px;height:14px;line-height:14px;text-align:center;">0</span></a>
     <a href="{{ url_for('logout') }}" class="logout">Logout</a>
   </div>
@@ -177,9 +178,11 @@
     <a href="{{ url_for('backtest') }}">📊 Backtest</a>
     <a href="{{ url_for('momentum') }}">⚡ Momentum</a>
     <a href="{{ url_for('analyze') }}">🔬 Analyze</a>
+    <a href="{{ url_for('ai_picks') }}">🤖 Claude's Picks</a>
     <a href="#" onclick="toggleAlertPanel(event)">🔔 Alerts</a>
   </div>
-  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:8px;">🚪 Logout</a>
+  <button onclick="triggerScan();document.getElementById('mobile-menu').classList.remove('open');document.getElementById('hamburger').classList.remove('open');" style="margin-top:8px;width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:14px;font-weight:500;padding:10px 12px;cursor:pointer;text-align:left;">⟳ Run Scan</button>
+  <a href="{{ url_for('logout') }}" class="logout" style="margin-top:4px;">🚪 Logout</a>
 </div>
 
 <!-- Alert panel -->
