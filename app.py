@@ -79,6 +79,9 @@ def init_db():
     # ── schema migrations (idempotent) ────────────────────────────────────────
     migrations = [
         "ALTER TABLE market_conditions ADD COLUMN ai_brief TEXT",
+        "ALTER TABLE market_conditions ADD COLUMN regime TEXT",
+        "ALTER TABLE market_conditions ADD COLUMN regime_label TEXT",
+        "ALTER TABLE market_conditions ADD COLUMN regime_confidence INTEGER",
         "ALTER TABLE portfolio ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
         "ALTER TABLE watchlist ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
         """CREATE TABLE IF NOT EXISTS ai_predictions (

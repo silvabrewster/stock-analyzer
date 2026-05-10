@@ -11,8 +11,9 @@ import psycopg2.extras
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 def get_db():
-    if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
-        return get_postgres()
+    url = os.environ.get("DATABASE_URL", "")
+    if url and url.startswith("postgresql"):
+        return get_postgres(url)
     return get_sqlite()
 
 def get_sqlite():
@@ -20,8 +21,8 @@ def get_sqlite():
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_postgres():
-    conn = psycopg2.connect(DATABASE_URL)
+def get_postgres(url=None):
+    conn = psycopg2.connect(url or os.environ.get("DATABASE_URL"))
     conn.autocommit = False
     return PostgresWrapper(conn)
 
