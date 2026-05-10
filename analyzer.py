@@ -565,7 +565,7 @@ def build_universe(extra_tickers=None) -> list:
         "GILD","REGN","VRTX","ZTS","MCO","MMC","TT","ETN",
         "PH","ROK","DHR","A","IQV","EW","BSX","MDT",
         "AMGN","BIIB","ILMN","IDXX","ALGN","RMD","DXCM","PODD",
-        "SNPS","CDNS","ANSS","PTC","FTNT","CRWD","ZS","OKTA",
+        "SNPS","CDNS","PTC","FTNT","CRWD","ZS","OKTA",
         "DDOG","NET","MDB","SNOW","PLTR","APP","HOOD","COIN",
     ]
     if extra_tickers:
