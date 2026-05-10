@@ -871,7 +871,7 @@ def portfolio_add():
     if ticker and shares and buy_price:
         try:
             conn = get_db()
-            conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker, user_id))
+            conn.execute("DELETE FROM portfolio WHERE ticker=?", (ticker,))
             conn.execute(
                 "INSERT INTO portfolio (ticker, user_id, shares, buy_price, notes) VALUES (?,?,?,?,?)",
                 (ticker, user_id, float(shares), float(buy_price), notes)
