@@ -125,6 +125,7 @@ def save_scan_to_db(df, market: dict):
               market.get("ai_brief",""), market.get("regime","unknown"),
               market.get("regime_label",""), market.get("regime_confidence",0)))
     except Exception:
+        conn._conn.rollback() if hasattr(conn, '_conn') else None
         conn.execute("""
             INSERT INTO market_conditions
             (scan_date, sp500, sp500_chg, vix, tny, ai_brief)
