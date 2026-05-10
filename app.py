@@ -116,13 +116,21 @@ def save_scan_to_db(df, market: dict):
     sp  = market.get("sp500", {})
     vix = market.get("vix", {})
     tny = market.get("tny", {})
-    conn.execute("""
-        INSERT INTO market_conditions
-        (scan_date, sp500, sp500_chg, vix, tny, ai_brief, regime, regime_label, regime_confidence)
-        VALUES (?,?,?,?,?,?,?,?,?)
-    """, (today, sp.get("price"), sp.get("chg"), vix.get("price"), tny.get("price"),
-          market.get("ai_brief",""), market.get("regime","unknown"),
-          market.get("regime_label",""), market.get("regime_confidence",0)))
+    try:
+        conn.execute("""
+            INSERT INTO market_conditions
+            (scan_date, sp500, sp500_chg, vix, tny, ai_brief, regime, regime_label, regime_confidence)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """, (today, sp.get("price"), sp.get("chg"), vix.get("price"), tny.get("price"),
+              market.get("ai_brief",""), market.get("regime","unknown"),
+              market.get("regime_label",""), market.get("regime_confidence",0)))
+    except Exception:
+        conn.execute("""
+            INSERT INTO market_conditions
+            (scan_date, sp500, sp500_chg, vix, tny, ai_brief)
+            VALUES (?,?,?,?,?,?)
+        """, (today, sp.get("price"), sp.get("chg"), vix.get("price"), tny.get("price"),
+              market.get("ai_brief","")))
     for _, row in df.head(20).iterrows():
         def safe(key, default=None):
             v = row.get(key, default)
