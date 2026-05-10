@@ -233,16 +233,7 @@ def daily_job():
     try:
         df, market, warning, alignments = run_analyzer()
 
-        # Save to web app database
-        try:
-            from app import save_scan_to_db, init_db
-            init_db()
-            save_scan_to_db(df, market)
-            print("  ✓ Results saved to web app database")
-        except Exception as e:
-            print(f"  ✗ DB save failed: {e}")
-
-        # AI market brief
+        # AI market brief — generate before saving so dashboard gets it
         ai_brief = ""
         try:
             from features import generate_market_brief
@@ -253,12 +244,11 @@ def daily_job():
         except Exception as e:
             print(f"  ✗ AI brief error: {e}")
 
-        # Market regime detection
+        # Market regime detection — generate before saving so dashboard gets it
         regime = None
         try:
             from market_regime import detect_market_regime
             top_stocks = df.head(20).to_dict('records')
-            # Map column names to what detect_market_regime expects
             mapped = [{"score": r.get("Consensus Score", 0), "insider": r.get("Insider Buy", "–")} for r in top_stocks]
             regime = detect_market_regime(market, mapped)
             market["regime"] = regime.get("regime", "unknown")
@@ -267,6 +257,15 @@ def daily_job():
             print(f"  ✓ Market regime: {regime.get('label')} ({regime.get('confidence')}% confidence)")
         except Exception as e:
             print(f"  ✗ Regime detection error: {e}")
+
+        # Save to web app database — now includes ai_brief + regime
+        try:
+            from app import save_scan_to_db, init_db
+            init_db()
+            save_scan_to_db(df, market)
+            print("  ✓ Results saved to web app database")
+        except Exception as e:
+            print(f"  ✗ DB save failed: {e}")
 
         # Price alerts
         try:

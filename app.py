@@ -472,6 +472,7 @@ def analyze():
 def api_analyze(ticker):
     import yfinance as yf
     import requests as req
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
     try:
         t = yf.Ticker(ticker.upper())
         try:
@@ -480,9 +481,11 @@ def api_analyze(ticker):
             price = float(fi.last_price or fi.regular_market_price or 0)
         except Exception:
             price = 0
+        info = {}
         try:
             with ThreadPoolExecutor(max_workers=1) as ex:
-                info = ex.submit(lambda: t.info).result(timeout=15)
+                future = ex.submit(lambda: t.info)
+                info   = future.result(timeout=15) or {}
         except Exception:
             info = {}
         if not info and not price:
@@ -1059,6 +1062,22 @@ def api_institutional(ticker):
 @app.route("/ping")
 def ping():
     return "pong",200
+
+@app.route("/api/run-scan", methods=["POST"])
+def api_run_scan():
+    # Simple token check so only the cron job can trigger this
+    token = request.headers.get("X-Scan-Token") or request.args.get("token","")
+    if token != os.environ.get("SCAN_TOKEN", ""):
+        return jsonify({"error": "unauthorized"}), 401
+    import threading
+    def _run():
+        try:
+            from scheduler import daily_job
+            daily_job()
+        except Exception as e:
+            print(f"[run-scan] error: {e}")
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "msg": "scan started"})
 
 # ── Claude's Picks ────────────────────────────────────────────────────────────
 
