@@ -71,6 +71,12 @@ def init_db():
         """CREATE TABLE IF NOT EXISTS insights_cache (
             key TEXT PRIMARY KEY, value TEXT NOT NULL,
             updated_at TEXT NOT NULL)""",
+        """CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL,
+            user_id TEXT NOT NULL DEFAULT 'default',
+            added_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(ticker, user_id))""",
     ]
     for sql in tables:
         conn.execute(sql)
