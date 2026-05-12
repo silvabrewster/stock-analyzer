@@ -1154,9 +1154,12 @@ def favorites_toggle():
         ).fetchone()
         if existing:
             conn.execute("DELETE FROM favorites WHERE ticker=? AND user_id=?", (ticker, user_id))
+            conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker, user_id))
             favorited = False
         else:
             conn.execute("INSERT INTO favorites (ticker, user_id) VALUES (?,?)", (ticker, user_id))
+            conn.execute("DELETE FROM watchlist WHERE ticker=? AND user_id=?", (ticker, user_id))
+            conn.execute("INSERT INTO watchlist (ticker, user_id) VALUES (?,?)", (ticker, user_id))
             favorited = True
         conn.commit()
     finally:
