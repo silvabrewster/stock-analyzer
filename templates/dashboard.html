@@ -244,6 +244,7 @@
     </div>
   </div>
   {% endif %}
+
   {% if portfolio_summary %}
   <div class="port-widget" onclick="togglePortWidget()">
     <div class="port-widget-header">
@@ -262,6 +263,7 @@
   {% if fav_stocks %}
   <div class="fav-chips"><span style="font-size:11px;color:var(--muted);">⭐ Favorites:</span>{% for s in fav_stocks %}{% set score = s.score or 0 %}<a href="{{ url_for('stock_detail', ticker=s.ticker) }}" class="fav-chip">{{ s.ticker }}<span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}" style="font-size:10px;padding:1px 6px;">{{ '%0.0f'|format(score) }}</span></a>{% endfor %}</div>
   {% endif %}
+
   {% if ai_brief %}
   <div class="ai-brief"><div class="ai-brief-icon">🤖</div><div>{{ ai_brief }}</div></div>
   {% endif %}
