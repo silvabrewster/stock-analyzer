@@ -140,6 +140,16 @@
     .consist-track { width: 50px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .consist-fill { height: 100%; background: var(--blue); border-radius: 2px; }
     .weekly-loading { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+    .star-btn { background: none; border: none; cursor: pointer; font-size: 15px; padding: 0 3px; color: var(--muted); line-height: 1; transition: color 0.15s, transform 0.1s; flex-shrink: 0; }
+    .star-btn:hover { transform: scale(1.25); }
+    .star-btn.starred { color: var(--gold); }
+    .fav-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .fav-chip { background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-family: 'DM Mono', monospace; color: var(--gold); text-decoration: none; display: flex; align-items: center; gap: 6px; }
+    .port-widget { background: var(--surf); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; cursor: pointer; transition: border-color 0.15s; }
+    .port-widget:hover { border-color: rgba(201,168,76,0.3); }
+    .port-widget-header { display: flex; justify-content: space-between; align-items: center; }
+    .port-holdings-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .port-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 11px; font-family: 'DM Mono', monospace; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 5px; }
     @media (max-width: 768px) {
       .hamburger { display: flex; } .nav-links { display: none; }
       .table-container .table-scroll { display: none; } .table-container .col-toggle { display: none; }
@@ -234,7 +244,24 @@
     </div>
   </div>
   {% endif %}
-
+  {% if portfolio_summary %}
+  <div class="port-widget" onclick="togglePortWidget()">
+    <div class="port-widget-header">
+      <div style="font-size:13px;font-weight:600;">💼 My Portfolio <span style="color:var(--muted);font-size:11px;font-weight:400;">· {{ portfolio_summary|length }} holdings</span></div>
+      <div style="display:flex;align-items:center;gap:12px;"><span style="font-family:'DM Mono',monospace;font-size:15px;">${{ "{:,.0f}".format(portfolio_total) }}</span><span id="port-arrow" style="color:var(--muted);font-size:11px;">▼</span></div>
+    </div>
+    <div id="port-holdings" style="display:none;">
+      <div class="port-holdings-list">
+        {% for h in portfolio_summary %}<a href="{{ url_for('stock_detail', ticker=h.ticker) }}" class="port-chip" onclick="event.stopPropagation()"><span style="color:var(--gold);font-weight:600;">{{ h.ticker }}</span><span style="color:{{ 'var(--green)' if h.gain_pct >= 0 else 'var(--red)' }};">{{ '+' if h.gain_pct >= 0 else '' }}{{ "%.1f"|format(h.gain_pct) }}%</span>{% if h.scan_score %}<span style="color:var(--muted);">· {{ h.scan_score }}</span>{% endif %}</a>{% endfor %}
+      </div>
+      <a href="{{ url_for('portfolio') }}" onclick="event.stopPropagation()" style="display:inline-block;margin-top:10px;font-size:11px;color:var(--gold);">Full portfolio →</a>
+    </div>
+  </div>
+  {% endif %}
+  {% set fav_stocks = stocks | selectattr('ticker', 'in', favorites) | list %}
+  {% if fav_stocks %}
+  <div class="fav-chips"><span style="font-size:11px;color:var(--muted);">⭐ Favorites:</span>{% for s in fav_stocks %}{% set score = s.score or 0 %}<a href="{{ url_for('stock_detail', ticker=s.ticker) }}" class="fav-chip">{{ s.ticker }}<span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}" style="font-size:10px;padding:1px 6px;">{{ '%0.0f'|format(score) }}</span></a>{% endfor %}</div>
+  {% endif %}
   {% if ai_brief %}
   <div class="ai-brief"><div class="ai-brief-icon">🤖</div><div>{{ ai_brief }}</div></div>
   {% endif %}
@@ -307,6 +334,7 @@
           <tr onclick="window.location='/stock/{{ s.ticker }}'" style="cursor:pointer;">
             <td>
               <div class="ticker-cell">
+                <button class="star-btn {{ 'starred' if s.ticker in favorites else '' }}" onclick="toggleFav('{{ s.ticker }}',this);event.stopPropagation();">{{ '★' if s.ticker in favorites else '☆' }}</button>
                 <a href="{{ url_for('stock_detail', ticker=s.ticker) }}" onclick="event.stopPropagation()">{{ s.ticker }}</a>
                 {% if s.is_new %}<span class="new-badge">NEW</span>{% endif %}
                 {% if s.vol_spike == '1' %}<span class="vol-badge">🔥</span>{% endif %}
@@ -343,7 +371,7 @@
       {% set score = s.score or 0 %}
       <div class="mobile-card" onclick="window.location='/stock/{{ s.ticker }}'">
         <div class="mc-top">
-          <div class="mc-ticker">{{ s.ticker }}{% if s.is_new %}<span class="new-badge" style="font-size:9px;margin-left:4px;">NEW</span>{% endif %}</div>
+          <div class="mc-ticker" style="display:flex;align-items:center;gap:6px;"><button class="star-btn {{ 'starred' if s.ticker in favorites else '' }}" onclick="toggleFav('{{ s.ticker }}',this);event.stopPropagation();">{{ '★' if s.ticker in favorites else '☆' }}</button>{{ s.ticker }}{% if s.is_new %}<span class="new-badge" style="font-size:9px;margin-left:4px;">NEW</span>{% endif %}</div>
           <span class="score-pill {{ 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') }}">{{ '%0.0f'|format(score) }}</span>
         </div>
         <div class="mc-signals">
@@ -445,6 +473,8 @@ function showUpdateBanner(){
     document.body.appendChild(b);
   }
 }
+function togglePortWidget(){const h=document.getElementById('port-holdings'),a=document.getElementById('port-arrow'),show=h.style.display==='none';h.style.display=show?'block':'none';a.textContent=show?'▲':'▼';}
+async function toggleFav(ticker,btn){try{const r=await fetch('/favorites/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticker})});const d=await r.json();btn.textContent=d.favorited?'★':'☆';btn.classList.toggle('starred',d.favorited);}catch(e){}}
 </script>
 </body>
 </html>
