@@ -305,6 +305,38 @@ def dashboard():
         regime = get_regime_from_db(conn)
     except Exception as e:
         print(f"Regime error: {e}")
+    user_id = session.get("user", "default")
+
+    favorites = set()
+    try:
+        favs = conn.execute("SELECT ticker FROM favorites WHERE user_id=?", (user_id,)).fetchall()
+        favorites = {r["ticker"] for r in favs}
+    except Exception:
+        pass
+
+    portfolio_summary = []
+    portfolio_total = 0.0
+    try:
+        port_rows = conn.execute(
+            "SELECT ticker, shares, buy_price FROM portfolio WHERE user_id=?", (user_id,)
+        ).fetchall()
+        for pr in port_rows:
+            scan = conn.execute(
+                "SELECT score, price FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",
+                (pr["ticker"],)
+            ).fetchone()
+            cur_price = (scan["price"] if scan and scan["price"] else None) or pr["buy_price"]
+            value = pr["shares"] * cur_price
+            gain_pct = (cur_price - pr["buy_price"]) / pr["buy_price"] * 100 if pr["buy_price"] else 0
+            portfolio_total += value
+            portfolio_summary.append({
+                "ticker": pr["ticker"],
+                "value": value,
+                "gain_pct": gain_pct,
+                "scan_score": int(scan["score"]) if scan and scan["score"] else None,
+            })
+    except Exception as e:
+        print(f"Dashboard portfolio error: {e}")
 
     try:
         maybe_check_alerts(conn)
@@ -315,7 +347,10 @@ def dashboard():
     return render_template("dashboard.html",
         stocks=stocks, market=market,
         latest_date=latest_date, streaks=streaks,
-        ai_brief=ai_brief, regime=regime)
+        ai_brief=ai_brief, regime=regime,
+        favorites=favorites,
+        portfolio_summary=portfolio_summary,
+        portfolio_total=portfolio_total)
 
 # ── weekly trend API (for short/long term toggle) ─────────────────────────────
 
@@ -1103,6 +1138,30 @@ def ai_picks():
         data = {"picks": [], "accuracy": None, "total_checked": 0, "correct": 0, "lessons": []}
     conn.close()
     return render_template("ai_picks.html", **data)
+  
+@app.route("/favorites/toggle", methods=["POST"])
+@login_required
+def favorites_toggle():
+    data    = request.get_json() or {}
+    ticker  = data.get("ticker", "").upper().strip()
+    user_id = session.get("user", "default")
+    if not ticker:
+        return jsonify({"error": "no ticker"}), 400
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM favorites WHERE ticker=? AND user_id=?", (ticker, user_id)
+        ).fetchone()
+        if existing:
+            conn.execute("DELETE FROM favorites WHERE ticker=? AND user_id=?", (ticker, user_id))
+            favorited = False
+        else:
+            conn.execute("INSERT INTO favorites (ticker, user_id) VALUES (?,?)", (ticker, user_id))
+            favorited = True
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"favorited": favorited, "ticker": ticker})
 
 @app.route("/api/ai-picks/regenerate", methods=["POST"])
 @login_required
