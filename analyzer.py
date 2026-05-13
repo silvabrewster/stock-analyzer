@@ -70,12 +70,21 @@ def get_market_conditions() -> dict:
     result = {}
     try:
         for label, ticker in [("sp500", SP500_TICKER), ("vix", VIX_TICKER), ("tny", TNX_TICKER)]:
-            t     = yf.Ticker(ticker)
-            info  = t.info
-            price = info.get("regularMarketPrice") or info.get("previousClose")
-            prev  = info.get("previousClose")
-            chg   = round((price - prev) / prev * 100, 2) if price and prev and prev > 0 else None
-            result[label] = {"price": round(price, 2) if price else "n/a", "chg": chg}
+            try:
+                t  = yf.Ticker(ticker)
+                fi = t.fast_info
+                price = fi.last_price or fi.regular_market_price
+                prev  = fi.previous_close
+                if not price:
+                    hist  = yf.download(ticker, period="2d", progress=False, auto_adjust=True)
+                    if not hist.empty:
+                        price = float(hist["Close"].iloc[-1])
+                        prev  = float(hist["Close"].iloc[-2]) if len(hist) > 1 else price
+                chg = round((price - prev) / prev * 100, 2) if price and prev and prev > 0 else None
+                result[label] = {"price": round(float(price), 2) if price else "n/a", "chg": chg}
+            except Exception as e:
+                print(f"  → {ticker} error: {e}")
+                result[label] = {"price": "n/a", "chg": None}
         print(f"  → S&P: {result['sp500']['price']} ({result['sp500']['chg']}%)  "
               f"VIX: {result['vix']['price']}  10yr: {result['tny']['price']}%")
     except Exception as e:
