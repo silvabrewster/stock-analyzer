@@ -540,9 +540,13 @@ def api_analyze(ticker):
             price = 0
         info = {}
         try:
-            with ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(lambda: t.info)
-                info   = future.result(timeout=15) or {}
+            for _attempt in range(3):
+                with ThreadPoolExecutor(max_workers=1) as ex:
+                    future = ex.submit(lambda: t.info)
+                    info   = future.result(timeout=15) or {}
+                if info and len(info) > 5:
+                    break
+                time.sleep(1)
         except Exception:
             info = {}
         if not info and not price:

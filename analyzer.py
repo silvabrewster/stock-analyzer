@@ -15,6 +15,20 @@ import sys
 import os
 from datetime import datetime, timedelta
 
+def _get_info(ticker_obj, retries=2):
+    """Call yf.Ticker.info with retries — newer yfinance sometimes returns {} on first call."""
+    for attempt in range(retries + 1):
+        try:
+            info = ticker_obj.info
+            if info and len(info) > 5:
+                return info
+            if attempt < retries:
+                time.sleep(1)
+        except Exception:
+            if attempt < retries:
+                time.sleep(1)
+    return {}
+
 MISSING = []
 try:
     import yfinance as yf
@@ -232,7 +246,7 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
     for ticker in tickers:
         try:
             t    = yf.Ticker(ticker)
-            info = t.info
+            info = _get_info(t)
             rec       = info.get("recommendationMean")
             num       = info.get("numberOfAnalystOpinions", 0)
             key       = info.get("recommendationKey", "n/a")
