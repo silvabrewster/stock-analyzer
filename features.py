@@ -253,6 +253,7 @@ def run_backtest(conn) -> dict:
             ORDER BY scan_date ASC
         """).fetchall()
 
+        print(f"Backtest: found {len(picks) if picks else 0} picks from DB")
         if not picks or len(picks) < 2:
             return {"error": "Need at least 2 days of scan history to backtest"}
 
@@ -266,8 +267,13 @@ def run_backtest(conn) -> dict:
             except (KeyError, TypeError, IndexError):
                 continue
             try:
-                hist = yf.download(ticker, start=buy_date, end=sell_date, progress=False, auto_adjust=True)
-                if hist.empty or len(hist) < 2: continue
+                # extend sell_date by 5 days so yfinance returns at least 1 bar
+                import datetime as _dt
+                sell_dt_ext = (
+                    _dt.datetime.strptime(sell_date, "%Y-%m-%d") + _dt.timedelta(days=5)
+                ).strftime("%Y-%m-%d")
+                hist = yf.download(ticker, start=buy_date, end=sell_dt_ext, progress=False, auto_adjust=True)
+                if hist.empty: continue
                 close = hist["Close"]
                 if hasattr(close, "columns"):
                     close = close.iloc[:, 0]
@@ -275,7 +281,7 @@ def run_backtest(conn) -> dict:
                 sell_price = float(close.iloc[-1])
                 ret        = (sell_price - buy_price) / buy_price
                 portfolio *= (1 + ret)
-                sp_hist    = yf.download("^GSPC", start=buy_date, end=sell_date, progress=False, auto_adjust=True)
+                sp_hist    = yf.download("^GSPC", start=buy_date, end=sell_dt_ext, progress=False, auto_adjust=True)
                 if not sp_hist.empty:
                     sp_close = sp_hist["Close"]
                     if hasattr(sp_close, "columns"):
@@ -284,7 +290,8 @@ def run_backtest(conn) -> dict:
                     sp_end = float(sp_close.iloc[-1])
                 results.append({"date": buy_date, "ticker": ticker, "return_pct": round(ret*100,2), "portfolio": round(portfolio,2)})
                 time.sleep(0.1)
-            except Exception:
+            except Exception as e:
+                print(f"Backtest trade error {ticker} {buy_date}: {e}")
                 continue
 
         if not results:
