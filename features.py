@@ -268,14 +268,20 @@ def run_backtest(conn) -> dict:
             try:
                 hist = yf.download(ticker, start=buy_date, end=sell_date, progress=False, auto_adjust=True)
                 if hist.empty or len(hist) < 2: continue
-                buy_price  = float(hist["Close"].iloc[0])
-                sell_price = float(hist["Close"].iloc[-1])
+                close = hist["Close"]
+                if hasattr(close, "columns"):
+                    close = close.iloc[:, 0]
+                buy_price  = float(close.iloc[0])
+                sell_price = float(close.iloc[-1])
                 ret        = (sell_price - buy_price) / buy_price
                 portfolio *= (1 + ret)
                 sp_hist    = yf.download("^GSPC", start=buy_date, end=sell_date, progress=False, auto_adjust=True)
                 if not sp_hist.empty:
-                    if sp_start is None: sp_start = float(sp_hist["Close"].iloc[0])
-                    sp_end = float(sp_hist["Close"].iloc[-1])
+                    sp_close = sp_hist["Close"]
+                    if hasattr(sp_close, "columns"):
+                        sp_close = sp_close.iloc[:, 0]
+                    if sp_start is None: sp_start = float(sp_close.iloc[0])
+                    sp_end = float(sp_close.iloc[-1])
                 results.append({"date": buy_date, "ticker": ticker, "return_pct": round(ret*100,2), "portfolio": round(portfolio,2)})
                 time.sleep(0.1)
             except Exception:
