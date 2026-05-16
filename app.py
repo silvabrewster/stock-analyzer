@@ -1006,22 +1006,43 @@ def earnings_calendar():
     return render_template("earnings.html",urgent=[e for e in earnings if e["days_away"]<=7],upcoming=[e for e in earnings if e["days_away"]>7])
 
 # ── backtest ──────────────────────────────────────────────────────────────────
+import threading as _threading
+_backtest_jobs = {}  # job_id -> {"status": "running"|"done"|"error", "result": ...}
 
-@app.route("/backtest",methods=["GET","POST"])
+@app.route("/backtest", methods=["GET","POST"])
 @login_required
 def backtest():
-    result=None
-    if request.method=="POST":
-        conn = None
-        try:
-            from features import run_backtest
-            conn=get_db(); result=run_backtest(conn)
-        except Exception as e:
-            result={"error":str(e)}
-        finally:
-            if conn:
-                conn.close()
-    return render_template("backtest.html",result=result)
+    if request.method == "POST":
+        import uuid
+        job_id = str(uuid.uuid4())
+        _backtest_jobs[job_id] = {"status": "running", "result": None}
+
+        def _run(jid):
+            conn = None
+            try:
+                from features import run_backtest
+                conn = get_db()
+                res  = run_backtest(conn)
+                _backtest_jobs[jid] = {"status": "done", "result": res}
+            except Exception as e:
+                _backtest_jobs[jid] = {"status": "error", "result": {"error": str(e)}}
+            finally:
+                if conn:
+                    conn.close()
+
+        t = _threading.Thread(target=_run, args=(job_id,), daemon=True)
+        t.start()
+        return jsonify({"job_id": job_id})
+
+    return render_template("backtest.html", result=None)
+
+@app.route("/backtest/status/<job_id>")
+@login_required
+def backtest_status(job_id):
+    job = _backtest_jobs.get(job_id)
+    if not job:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify(job)
 
 # ── portfolio earnings API ───────────────────────────────────────────────────
 

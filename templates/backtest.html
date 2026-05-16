@@ -108,9 +108,66 @@
   <div class="page-title">📊 Backtest Results</div>
   <p class="page-sub">Simulates buying the #1 ranked stock each day and tracks your hypothetical portfolio vs the S&P 500.</p>
 
-  <form method="POST" action="{{ url_for('backtest') }}">
-    <button type="submit" class="run-btn">▶ Run Backtest</button>
-  </form>
+  <button class="run-btn" id="run-btn" onclick="startBacktest()">▶ Run Backtest</button>
+  <div id="bt-status" style="display:none;margin-top:12px;color:var(--muted);font-size:13px;">⏳ Running… this takes ~30 seconds</div>
+  <div id="bt-result"></div>
+
+  <script>
+  async function startBacktest() {
+    document.getElementById('run-btn').disabled = true;
+    document.getElementById('run-btn').textContent = '⏳ Running…';
+    document.getElementById('bt-status').style.display = 'block';
+    document.getElementById('bt-result').innerHTML = '';
+    try {
+      const r = await fetch('/backtest', {method:'POST', headers:{'Content-Type':'application/json'}});
+      const {job_id} = await r.json();
+      pollBacktest(job_id);
+    } catch(e) {
+      showBtError('Failed to start backtest: ' + e);
+    }
+  }
+
+  function pollBacktest(job_id) {
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch('/backtest/status/' + job_id);
+        const job = await r.json();
+        if (job.status === 'done') {
+          clearInterval(interval);
+          document.getElementById('bt-status').style.display = 'none';
+          document.getElementById('run-btn').disabled = false;
+          document.getElementById('run-btn').textContent = '▶ Run Backtest';
+          renderBtResult(job.result);
+        } else if (job.status === 'error' || job.status === 'not_found') {
+          clearInterval(interval);
+          showBtError(job.result?.error || 'Unknown error');
+        }
+      } catch(e) { /* keep polling */ }
+    }, 3000);
+  }
+
+  function showBtError(msg) {
+    document.getElementById('bt-status').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('run-btn').textContent = '▶ Run Backtest';
+    document.getElementById('bt-result').innerHTML = `<div class="empty"><div class="big">📊</div><p>${msg}</p></div>`;
+  }
+
+  function renderBtResult(r) {
+    if (r.error) { showBtError(r.error); return; }
+    const up = v => v > 0 ? 'up' : 'down';
+    const pct = v => (v > 0 ? '+' : '') + v + '%';
+    document.getElementById('bt-result').innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Portfolio Return</div><div class="stat-value ${up(r.total_return)}">${r.total_return}%</div><div class="stat-sub">Starting $10,000</div></div>
+        <div class="stat-card"><div class="stat-label">Final Value</div><div class="stat-value">$${r.final_value.toLocaleString()}</div></div>
+        <div class="stat-card"><div class="stat-label">vs S&P 500</div><div class="stat-value ${up(r.alpha)}">${pct(r.alpha)}</div><div class="stat-sub">S&P: ${r.sp_return}%</div></div>
+        <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${up(r.win_rate-50)}">${r.win_rate}%</div><div class="stat-sub">${r.num_trades} trades</div></div>
+        <div class="stat-card"><div class="stat-label">Best Trade</div><div class="stat-value up">+${r.best_trade.return_pct}%</div><div class="stat-sub">${r.best_trade.ticker} on ${r.best_trade.date}</div></div>
+        <div class="stat-card"><div class="stat-label">Worst Trade</div><div class="stat-value down">${r.worst_trade.return_pct}%</div><div class="stat-sub">${r.worst_trade.ticker} on ${r.worst_trade.date}</div></div>
+      </div>`;
+  }
+  </script>
 
   {% if result and not result.error %}
   <div class="stat-grid">

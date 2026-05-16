@@ -290,19 +290,34 @@ def run_backtest(conn) -> dict:
             _dt.datetime.strptime(all_dates[-1], "%Y-%m-%d") + _dt.timedelta(days=7)
         ).strftime("%Y-%m-%d")
 
-        # Download full history for each unique ticker in ONE request each
+        # Bulk-download ALL tickers in 2 requests to avoid rate limits
+        import yfinance as yf
         unique_tickers = list({p["ticker"] for p in picks})
-        print(f"Backtest: downloading {len(unique_tickers)} tickers + SPY bulk")
+        print(f"Backtest: bulk downloading {len(unique_tickers)} tickers in one call")
         price_cache = {}
-        for tkr in unique_tickers:
-            df = _yf_download_retry(tkr, range_start, range_end)
-            s  = _close_series(df)
-            if s is not None:
-                price_cache[tkr] = s
-            time.sleep(1)  # gentle rate-limit pause between tickers
+        try:
+            all_df = yf.download(unique_tickers, start=range_start, end=range_end,
+                                 progress=False, auto_adjust=True)
+            if not all_df.empty:
+                close_df = all_df["Close"]
+                if hasattr(close_df, "columns"):
+                    # MultiIndex: one column per ticker
+                    for tkr in unique_tickers:
+                        if tkr in close_df.columns:
+                            s = close_df[tkr].dropna()
+                            if not s.empty:
+                                price_cache[tkr] = s
+                else:
+                    # Single ticker returned as Series
+                    if len(unique_tickers) == 1:
+                        price_cache[unique_tickers[0]] = close_df.dropna()
+        except Exception as e:
+            print(f"Backtest bulk download error: {e}")
 
-        sp_df    = _yf_download_retry("^GSPC", range_start, range_end)
+        sp_df    = yf.download("^GSPC", start=range_start, end=range_end,
+                               progress=False, auto_adjust=True)
         sp_close = _close_series(sp_df)
+        print(f"Backtest: cached {len(price_cache)}/{len(unique_tickers)} tickers")
 
         results = []; portfolio = 10000; sp_start = None; sp_end = None
 
