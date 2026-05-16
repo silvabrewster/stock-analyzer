@@ -320,7 +320,7 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
             }
             time.sleep(0.35)
         except Exception as e:
-            results[ticker] = {"yahoo_strong_buy": False, "error": str(e)}
+            results[ticker] = {"yahoo_strong_buy": False, "sector": SECTOR_MAP.get(ticker, "Unknown"), "error": str(e)}
 
     count = sum(1 for v in results.values() if v.get("yahoo_strong_buy"))
     print(f"  → {count} Yahoo Strong Buys found")
@@ -595,7 +595,7 @@ def compute_consensus(
             "Price":            y.get("current_price", "n/a"),
             "Upside %":         f"{upside}%" if upside is not None else "n/a",
             "# Analysts":       y.get("yahoo_num_analysts", "n/a"),
-            "Sector":           y.get("sector", "Unknown"),
+            "Sector":           SECTOR_MAP.get(ticker) or (y.get("sector") or "Unknown"),
         })
 
     df = pd.DataFrame(rows).sort_values("Consensus Score", ascending=False)
