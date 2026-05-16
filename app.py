@@ -114,6 +114,15 @@ def init_db():
 
     conn.close()
 
+def _to_float(val):
+    """Convert a value to float, returning None for n/a strings."""
+    if val is None or val == "n/a" or val == "":
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
 def save_scan_to_db(df, market: dict):
     conn  = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
@@ -126,7 +135,8 @@ def save_scan_to_db(df, market: dict):
         INSERT INTO market_conditions
         (scan_date, sp500, sp500_chg, vix, tny, ai_brief)
         VALUES (?,?,?,?,?,?)
-    """, (today, sp.get("price"), sp.get("chg"), vix.get("price"), tny.get("price"),
+    """, (today, _to_float(sp.get("price")), _to_float(sp.get("chg")),
+          _to_float(vix.get("price")), _to_float(tny.get("price")),
           market.get("ai_brief","")))
     for _, row in df.head(20).iterrows():
         def safe(key, default=None):
@@ -320,12 +330,14 @@ def dashboard():
         port_rows = conn.execute(
             "SELECT ticker, shares, buy_price FROM portfolio WHERE user_id=?", (user_id,)
         ).fetchall()
+        port_tickers = [pr["ticker"] for pr in port_rows]
+        live_prices  = batch_fetch_prices(port_tickers, conn, max_age_minutes=30) if port_tickers else {}
         for pr in port_rows:
             scan = conn.execute(
-                "SELECT score, price FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",
+                "SELECT score FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",
                 (pr["ticker"],)
             ).fetchone()
-            cur_price = (scan["price"] if scan and scan["price"] else None) or pr["buy_price"]
+            cur_price = live_prices.get(pr["ticker"]) or pr["buy_price"]
             value = pr["shares"] * cur_price
             gain_pct = (cur_price - pr["buy_price"]) / pr["buy_price"] * 100 if pr["buy_price"] else 0
             portfolio_total += value
