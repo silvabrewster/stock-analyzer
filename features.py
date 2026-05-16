@@ -314,16 +314,34 @@ def run_backtest(conn) -> dict:
             except (KeyError, TypeError, IndexError):
                 continue
 
+            # Skip low-conviction picks
+            if (pick.get("score") or 0) < 60:
+                continue
+
             close = price_cache.get(ticker)
             if close is None:
                 continue
             try:
-                # Slice to [buy_date, sell_date] window
-                window = close.loc[buy_date:sell_date]
+                import pandas as _pd
+                idx = close.index
+
+                def _slice(series, start_str, end_str):
+                    """Timezone-safe date slice."""
+                    start_ts = _pd.Timestamp(start_str)
+                    end_ts   = _pd.Timestamp(end_str) + _pd.Timedelta(days=1)
+                    if series.index.tz is not None:
+                        start_ts = start_ts.tz_localize(series.index.tz)
+                        end_ts   = end_ts.tz_localize(series.index.tz)
+                    return series[(series.index >= start_ts) & (series.index < end_ts)]
+
+                window = _slice(close, buy_date, sell_date)
                 if window.empty:
-                    # fall back to nearest available bars
-                    window = close[close.index >= buy_date]
-                if len(window) < 1:
+                    # widen to next available bar after buy_date
+                    start_ts = _pd.Timestamp(buy_date)
+                    if close.index.tz is not None:
+                        start_ts = start_ts.tz_localize(close.index.tz)
+                    window = close[close.index >= start_ts].iloc[:2]
+                if len(window) < 2:
                     continue
                 buy_price  = float(window.iloc[0])
                 sell_price = float(window.iloc[-1])
@@ -331,9 +349,12 @@ def run_backtest(conn) -> dict:
                 portfolio *= (1 + ret)
 
                 if sp_close is not None:
-                    sp_window = sp_close.loc[buy_date:sell_date]
+                    sp_window = _slice(sp_close, buy_date, sell_date)
                     if sp_window.empty:
-                        sp_window = sp_close[sp_close.index >= buy_date]
+                        start_ts = _pd.Timestamp(buy_date)
+                        if sp_close.index.tz is not None:
+                            start_ts = start_ts.tz_localize(sp_close.index.tz)
+                        sp_window = sp_close[sp_close.index >= start_ts].iloc[:2]
                     if not sp_window.empty:
                         if sp_start is None:
                             sp_start = float(sp_window.iloc[0])
