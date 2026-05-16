@@ -29,6 +29,30 @@ def _get_info(ticker_obj, retries=2):
                 time.sleep(1)
     return {}
 
+# Static sector fallback for commonly scanned tickers
+SECTOR_MAP = {
+    "AAPL":"Technology","MSFT":"Technology","NVDA":"Technology","GOOGL":"Technology","GOOG":"Technology",
+    "META":"Technology","AMZN":"Consumer Cyclical","TSLA":"Consumer Cyclical","AVGO":"Technology",
+    "ORCL":"Technology","CRM":"Technology","AMD":"Technology","INTC":"Technology","QCOM":"Technology",
+    "ADBE":"Technology","NOW":"Technology","INTU":"Technology","PANW":"Technology","ANET":"Technology",
+    "SNOW":"Technology","PLTR":"Technology","CRWD":"Technology","NET":"Technology","ZS":"Technology",
+    "JPM":"Financial Services","BAC":"Financial Services","WFC":"Financial Services","GS":"Financial Services",
+    "MS":"Financial Services","V":"Financial Services","MA":"Financial Services","AXP":"Financial Services",
+    "BRK.B":"Financial Services","C":"Financial Services","BLK":"Financial Services",
+    "UNH":"Healthcare","LLY":"Healthcare","JNJ":"Healthcare","ABBV":"Healthcare","MRK":"Healthcare",
+    "PFE":"Healthcare","TMO":"Healthcare","ABT":"Healthcare","DHR":"Healthcare","ISRG":"Healthcare",
+    "XOM":"Energy","CVX":"Energy","COP":"Energy","SLB":"Energy","EOG":"Energy",
+    "HD":"Consumer Cyclical","MCD":"Consumer Defensive","NKE":"Consumer Cyclical","SBUX":"Consumer Cyclical",
+    "COST":"Consumer Defensive","WMT":"Consumer Defensive","TGT":"Consumer Defensive","PG":"Consumer Defensive",
+    "KO":"Consumer Defensive","PEP":"Consumer Defensive","PM":"Consumer Defensive",
+    "CAT":"Industrials","HON":"Industrials","GE":"Industrials","BA":"Industrials","UPS":"Industrials",
+    "RTX":"Industrials","LMT":"Industrials","DE":"Industrials",
+    "NFLX":"Communication Services","DIS":"Communication Services","CMCSA":"Communication Services","T":"Communication Services","VZ":"Communication Services",
+    "AMT":"Real Estate","PLD":"Real Estate","EQIX":"Real Estate",
+    "LIN":"Basic Materials","APD":"Basic Materials","ECL":"Basic Materials",
+    "NEE":"Utilities","DUK":"Utilities","SO":"Utilities",
+}
+
 MISSING = []
 try:
     import yfinance as yf
@@ -242,10 +266,13 @@ def get_signal_alignments(tickers: list) -> dict:
 
 def get_yahoo_strong_buys(tickers: list) -> dict:
     results = {}
+    import requests as _req
+    _session = _req.Session()
+    _session.headers.update(HEADERS)
     print(f"\n[Yahoo Finance] Checking {len(tickers)} tickers...")
     for ticker in tickers:
         try:
-            t    = yf.Ticker(ticker)
+            t    = yf.Ticker(ticker, session=_session)
             info = _get_info(t)
             rec       = info.get("recommendationMean")
             num       = info.get("numberOfAnalystOpinions", 0)
@@ -258,7 +285,7 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
             div_yield = info.get("dividendYield", 0) or 0
             avg_vol   = info.get("averageVolume", 0) or 0
             cur_vol   = info.get("volume", 0) or 0
-            sector    = info.get("sector", "Unknown")
+            sector    = info.get("sector") or SECTOR_MAP.get(ticker, "Unknown")
             fwd_eps   = info.get("forwardEps")
             trail_eps = info.get("trailingEps")
             short_pct = info.get("shortPercentOfFloat", 0) or 0
