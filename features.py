@@ -242,9 +242,35 @@ def get_institutional_changes(tickers: list) -> dict:
 
 # ── BACKTEST ──────────────────────────────────────────────────────────────────
 
+def _yf_download_retry(ticker, start, end, retries=3):
+    """Download with exponential backoff on rate-limit errors."""
+    import yfinance as yf
+    for attempt in range(retries):
+        try:
+            df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
+            if not df.empty:
+                return df
+        except Exception as e:
+            if "RateLimit" not in type(e).__name__ and "429" not in str(e):
+                return None
+        wait = 4 ** attempt  # 1s, 4s, 16s
+        time.sleep(wait)
+    return None
+
+
+def _close_series(df):
+    """Return Close as a plain Series regardless of MultiIndex."""
+    if df is None or df.empty:
+        return None
+    c = df["Close"]
+    if hasattr(c, "columns"):
+        c = c.iloc[:, 0]
+    return c
+
+
 def run_backtest(conn) -> dict:
     """Simulates buying the #1 pick each day and calculates returns."""
-    import yfinance as yf
+    import datetime as _dt
     try:
         picks = conn.execute("""
             SELECT scan_date, ticker, score
@@ -257,6 +283,27 @@ def run_backtest(conn) -> dict:
         if not picks or len(picks) < 2:
             return {"error": "Need at least 2 days of scan history to backtest"}
 
+        # Determine overall date range
+        all_dates  = [p["scan_date"] for p in picks]
+        range_start = all_dates[0]
+        range_end   = (
+            _dt.datetime.strptime(all_dates[-1], "%Y-%m-%d") + _dt.timedelta(days=7)
+        ).strftime("%Y-%m-%d")
+
+        # Download full history for each unique ticker in ONE request each
+        unique_tickers = list({p["ticker"] for p in picks})
+        print(f"Backtest: downloading {len(unique_tickers)} tickers + SPY bulk")
+        price_cache = {}
+        for tkr in unique_tickers:
+            df = _yf_download_retry(tkr, range_start, range_end)
+            s  = _close_series(df)
+            if s is not None:
+                price_cache[tkr] = s
+            time.sleep(1)  # gentle rate-limit pause between tickers
+
+        sp_df    = _yf_download_retry("^GSPC", range_start, range_end)
+        sp_close = _close_series(sp_df)
+
         results = []; portfolio = 10000; sp_start = None; sp_end = None
 
         for i, pick in enumerate(picks[:-1]):
@@ -266,36 +313,43 @@ def run_backtest(conn) -> dict:
                 sell_date = picks[i+1]["scan_date"]
             except (KeyError, TypeError, IndexError):
                 continue
+
+            close = price_cache.get(ticker)
+            if close is None:
+                continue
             try:
-                # extend sell_date by 5 days so yfinance returns at least 1 bar
-                import datetime as _dt
-                sell_dt_ext = (
-                    _dt.datetime.strptime(sell_date, "%Y-%m-%d") + _dt.timedelta(days=5)
-                ).strftime("%Y-%m-%d")
-                hist = yf.download(ticker, start=buy_date, end=sell_dt_ext, progress=False, auto_adjust=True)
-                if hist.empty: continue
-                close = hist["Close"]
-                if hasattr(close, "columns"):
-                    close = close.iloc[:, 0]
-                buy_price  = float(close.iloc[0])
-                sell_price = float(close.iloc[-1])
+                # Slice to [buy_date, sell_date] window
+                window = close.loc[buy_date:sell_date]
+                if window.empty:
+                    # fall back to nearest available bars
+                    window = close[close.index >= buy_date]
+                if len(window) < 1:
+                    continue
+                buy_price  = float(window.iloc[0])
+                sell_price = float(window.iloc[-1])
                 ret        = (sell_price - buy_price) / buy_price
                 portfolio *= (1 + ret)
-                sp_hist    = yf.download("^GSPC", start=buy_date, end=sell_dt_ext, progress=False, auto_adjust=True)
-                if not sp_hist.empty:
-                    sp_close = sp_hist["Close"]
-                    if hasattr(sp_close, "columns"):
-                        sp_close = sp_close.iloc[:, 0]
-                    if sp_start is None: sp_start = float(sp_close.iloc[0])
-                    sp_end = float(sp_close.iloc[-1])
-                results.append({"date": buy_date, "ticker": ticker, "return_pct": round(ret*100,2), "portfolio": round(portfolio,2)})
-                time.sleep(0.1)
+
+                if sp_close is not None:
+                    sp_window = sp_close.loc[buy_date:sell_date]
+                    if sp_window.empty:
+                        sp_window = sp_close[sp_close.index >= buy_date]
+                    if not sp_window.empty:
+                        if sp_start is None:
+                            sp_start = float(sp_window.iloc[0])
+                        sp_end = float(sp_window.iloc[-1])
+
+                results.append({
+                    "date": buy_date, "ticker": ticker,
+                    "return_pct": round(ret * 100, 2),
+                    "portfolio":  round(portfolio, 2),
+                })
             except Exception as e:
                 print(f"Backtest trade error {ticker} {buy_date}: {e}")
                 continue
 
         if not results:
-            return {"error": "Could not calculate returns"}
+            return {"error": "Could not calculate returns — all tickers were rate-limited or had no data"}
 
         total_return = round((portfolio - 10000) / 10000 * 100, 1)
         sp_return    = round((sp_end - sp_start) / sp_start * 100, 1) if sp_start and sp_end else 0
@@ -305,7 +359,7 @@ def run_backtest(conn) -> dict:
             "total_return":  total_return, "sp_return": sp_return,
             "alpha":         round(total_return - sp_return, 1),
             "final_value":   round(portfolio, 2), "starting": 10000,
-            "num_trades":    len(results), "win_rate": round(wins/len(results)*100,1),
+            "num_trades":    len(results), "win_rate": round(wins / len(results) * 100, 1),
             "best_trade":    max(results, key=lambda x: x["return_pct"]),
             "worst_trade":   min(results, key=lambda x: x["return_pct"]),
             "daily_results": results[-30:],
