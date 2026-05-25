@@ -107,19 +107,24 @@ def get_market_conditions() -> dict:
     print("\n[Market] Fetching market conditions...")
     result = {}
     try:
+        # Bulk download all three in one request — avoids per-ticker rate limits
+        bulk = yf.download(
+            [SP500_TICKER, VIX_TICKER, TNX_TICKER],
+            period="2d", progress=False, auto_adjust=True
+        )
         for label, ticker in [("sp500", SP500_TICKER), ("vix", VIX_TICKER), ("tny", TNX_TICKER)]:
             try:
-                t  = yf.Ticker(ticker)
-                fi = t.fast_info
-                price = fi.last_price or fi.regular_market_price
-                prev  = fi.previous_close
-                if not price:
-                    hist  = yf.download(ticker, period="2d", progress=False, auto_adjust=True)
-                    if not hist.empty:
-                        price = float(hist["Close"].iloc[-1])
-                        prev  = float(hist["Close"].iloc[-2]) if len(hist) > 1 else price
-                chg = round((price - prev) / prev * 100, 2) if price and prev and prev > 0 else None
-                result[label] = {"price": round(float(price), 2) if price else "n/a", "chg": chg}
+                if not bulk.empty and "Close" in bulk.columns:
+                    close = bulk["Close"]
+                    col   = close[ticker] if ticker in close.columns else None
+                    if col is not None:
+                        col   = col.dropna()
+                        price = float(col.iloc[-1]) if len(col) >= 1 else None
+                        prev  = float(col.iloc[-2]) if len(col) >= 2 else price
+                        chg   = round((price - prev) / prev * 100, 2) if price and prev and prev > 0 else None
+                        result[label] = {"price": round(price, 2) if price else "n/a", "chg": chg}
+                        continue
+                result[label] = {"price": "n/a", "chg": None}
             except Exception as e:
                 print(f"  → {ticker} error: {e}")
                 result[label] = {"price": "n/a", "chg": None}
@@ -340,28 +345,47 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
 # ── source 2: zacks ───────────────────────────────────────────────────────────
 
 def get_zacks_strong_buys() -> set:
-    print("\n[Zacks] Fetching Strong Buy list...")
-    url = "https://www.zacks.com/stocks/buy-list/"
+    print("\n[Analyst Screener] Fetching strong buy stocks via Finviz...")
+    # Finviz screener: analyst recom = Strong Buy, price > $5
+    urls = [
+        "https://finviz.com/screener.ashx?v=111&f=an_recom_strongbuy,sh_price_o5&o=-change",
+        "https://finviz.com/screener.ashx?v=111&f=an_recom_strongbuy,sh_price_o5&r=21&o=-change",
+        "https://finviz.com/screener.ashx?v=111&f=an_recom_strongbuy,sh_price_o5&r=41&o=-change",
+    ]
+    tickers = set()
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
-        if resp.status_code != 200:
-            print(f"  → Blocked (HTTP {resp.status_code}). Skipping.")
-            return set()
-        soup    = BeautifulSoup(resp.text, "html.parser")
-        matches = re.findall(r'"symbol"\s*:\s*"([A-Z]{1,5})"', resp.text)
-        tickers = set(matches)
-        if not tickers:
-            for row in soup.select("table tbody tr"):
-                cells = row.find_all("td")
-                if cells:
-                    t = cells[0].get_text(strip=True).upper()
-                    if re.match(r'^[A-Z]{1,5}$', t):
-                        tickers.add(t)
-        print(f"  → {len(tickers)} Zacks #1 Strong Buys found")
-        return tickers
+        for url in urls:
+            resp = requests.get(url, headers=HEADERS, timeout=12)
+            if resp.status_code != 200:
+                print(f"  → Finviz blocked (HTTP {resp.status_code})")
+                break
+            # Finviz ticker links: /quote.ashx?t=TICKER
+            found = re.findall(r'quote\.ashx\?t=([A-Z]{1,5})"', resp.text)
+            tickers.update(found)
+            time.sleep(1)
+        if tickers:
+            print(f"  → {len(tickers)} Finviz Strong Buy stocks found")
+            return tickers
     except Exception as e:
-        print(f"  → Error: {e}. Skipping.")
-        return set()
+        print(f"  → Finviz error: {e}")
+
+    # Fallback: try stockanalysis.com top analyst picks
+    try:
+        resp = requests.get(
+            "https://stockanalysis.com/stocks/ratings/",
+            headers=HEADERS, timeout=12
+        )
+        if resp.status_code == 200:
+            found = re.findall(r'/stocks/([a-z]{1,5})/\?p=annual', resp.text)
+            tickers = {t.upper() for t in found}
+            if tickers:
+                print(f"  → {len(tickers)} stocks from StockAnalysis fallback")
+                return tickers
+    except Exception:
+        pass
+
+    print("  → 0 strong buys found (all sources blocked)")
+    return set()
 
 # ── source 3: morningstar ─────────────────────────────────────────────────────
 
