@@ -285,7 +285,18 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
             div_yield = info.get("dividendYield", 0) or 0
             avg_vol   = info.get("averageVolume", 0) or 0
             cur_vol   = info.get("volume", 0) or 0
-            sector    = info.get("sector") or SECTOR_MAP.get(ticker, "Unknown")
+            sector    = SECTOR_MAP.get(ticker) or info.get("sector") or "Unknown"
+
+            # fast_info fallback for price when .info is empty (rate-limited)
+            if not current:
+                try:
+                    fi = t.fast_info
+                    current = fi.last_price or fi.regular_market_price
+                    if not high52:
+                        high52 = getattr(fi, "year_high", None)
+                        low52  = getattr(fi, "year_low", None)
+                except Exception:
+                    pass
             fwd_eps   = info.get("forwardEps")
             trail_eps = info.get("trailingEps")
             short_pct = info.get("shortPercentOfFloat", 0) or 0
@@ -359,12 +370,18 @@ def get_morningstar_ratings(tickers: list) -> dict:
     results = {}
     for ticker in tickers:
         try:
-            info          = yf.Ticker(ticker).info
+            t_obj         = yf.Ticker(ticker)
+            info          = _get_info(t_obj)
             roe           = info.get("returnOnEquity", 0) or 0
             profit_margin = info.get("profitMargins", 0) or 0
             forward_pe    = info.get("forwardPE")
             target        = info.get("targetMeanPrice")
             current       = info.get("currentPrice") or info.get("regularMarketPrice")
+            if not current:
+                try:
+                    current = t_obj.fast_info.last_price or t_obj.fast_info.regular_market_price
+                except Exception:
+                    pass
             discount = None
             if target and current and current > 0:
                 discount = (target - current) / current
