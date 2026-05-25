@@ -11,6 +11,7 @@ from flask import Flask, render_template, request, session, redirect, url_for, j
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 import os
+import time
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -706,7 +707,7 @@ Write 3 short paragraphs: 1) business & competitive position 2) key strengths no
                     "x-api-key":       anthropic_key,
                     "anthropic-version": "2023-06-01",
                 },
-                json={"model": "claude-sonnet-4-6", "max_tokens": 300,
+                json={"model": "claude-sonnet-4-20250514", "max_tokens": 300,
                       "messages": [{"role": "user", "content": prompt}]},
                 timeout=30
             )

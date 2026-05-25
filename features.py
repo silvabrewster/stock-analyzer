@@ -242,31 +242,6 @@ def get_institutional_changes(tickers: list) -> dict:
 
 # ── BACKTEST ──────────────────────────────────────────────────────────────────
 
-def _yf_download_retry(ticker, start, end, retries=3):
-    """Download with exponential backoff on rate-limit errors."""
-    import yfinance as yf
-    for attempt in range(retries):
-        try:
-            df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-            if not df.empty:
-                return df
-        except Exception as e:
-            if "RateLimit" not in type(e).__name__ and "429" not in str(e):
-                return None
-        wait = 4 ** attempt  # 1s, 4s, 16s
-        time.sleep(wait)
-    return None
-
-
-def _close_series(df):
-    """Return Close as a plain Series regardless of MultiIndex."""
-    if df is None or df.empty:
-        return None
-    c = df["Close"]
-    if hasattr(c, "columns"):
-        c = c.iloc[:, 0]
-    return c
-
 
 def run_backtest(conn) -> dict:
     """Simulates buying the #1 pick each day using stored scan prices — no Yahoo needed."""
