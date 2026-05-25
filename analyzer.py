@@ -365,23 +365,31 @@ def get_zacks_strong_buys() -> set:
 
 # ── source 3: morningstar ─────────────────────────────────────────────────────
 
-def get_morningstar_ratings(tickers: list) -> dict:
+def get_morningstar_ratings(tickers: list, yahoo_data: dict = None) -> dict:
     print(f"\n[Morningstar] Estimating ratings for {len(tickers)} tickers...")
     results = {}
+    yahoo_data = yahoo_data or {}
     for ticker in tickers:
         try:
-            t_obj         = yf.Ticker(ticker)
-            info          = _get_info(t_obj)
+            # Prefer already-fetched yahoo_data to avoid extra yfinance calls
+            y      = yahoo_data.get(ticker, {})
+            target  = y.get("price_target")
+            current = y.get("current_price")
+            # Fall back to a quick .info fetch only if we have nothing
+            info = {}
+            if not current:
+                try:
+                    t_obj  = yf.Ticker(ticker)
+                    info   = _get_info(t_obj)
+                    target  = target or info.get("targetMeanPrice")
+                    current = info.get("currentPrice") or info.get("regularMarketPrice")
+                    if not current:
+                        current = t_obj.fast_info.last_price
+                except Exception:
+                    pass
             roe           = info.get("returnOnEquity", 0) or 0
             profit_margin = info.get("profitMargins", 0) or 0
             forward_pe    = info.get("forwardPE")
-            target        = info.get("targetMeanPrice")
-            current       = info.get("currentPrice") or info.get("regularMarketPrice")
-            if not current:
-                try:
-                    current = t_obj.fast_info.last_price or t_obj.fast_info.regular_market_price
-                except Exception:
-                    pass
             discount = None
             if target and current and current > 0:
                 discount = (target - current) / current
@@ -476,31 +484,41 @@ def get_insider_buyers() -> set:
 # ── source 6/7: relative strength ────────────────────────────────────────────
 
 def get_relative_strength(tickers: list) -> dict:
-    print(f"\n[Relative Strength] Calculating 3-month performance vs S&P 500...")
-    results = {}
+    print(f"\n[Relative Strength] Calculating 3-month performance vs S&P 500 (bulk)...")
+    results = {t: False for t in tickers}
     end   = datetime.today()
     start = end - timedelta(days=95)
     try:
-        sp500  = yf.download(SP500_TICKER, start=start, end=end, progress=False, auto_adjust=True)
-        sp_ret = (float(sp500["Close"].iloc[-1]) - float(sp500["Close"].iloc[0])) / float(sp500["Close"].iloc[0])
+        # Single bulk download for all tickers + S&P at once
+        all_tickers = [SP500_TICKER] + tickers
+        bulk = yf.download(all_tickers, start=start, end=end, progress=False, auto_adjust=True)
+        if bulk.empty:
+            print("  → Bulk download empty. Skipping.")
+            return results
+        close = bulk["Close"]
+        # close is a DataFrame with ticker columns when multi-ticker
+        def _col_ret(col):
+            s = col.dropna()
+            if len(s) < 10:
+                return None
+            return (float(s.iloc[-1]) - float(s.iloc[0])) / float(s.iloc[0])
+
+        sp_ret = _col_ret(close[SP500_TICKER]) if SP500_TICKER in close.columns else None
+        if sp_ret is None:
+            print("  → S&P data missing. Skipping.")
+            return results
+
+        beating = 0
+        for ticker in tickers:
+            if ticker in close.columns:
+                t_ret = _col_ret(close[ticker])
+                if t_ret is not None:
+                    results[ticker] = t_ret > sp_ret
+                    if results[ticker]:
+                        beating += 1
+        print(f"  → {beating} stocks outperforming S&P 500 over 3 months")
     except Exception as e:
-        print(f"  → S&P error: {e}. Skipping.")
-        return {}
-    beating = 0
-    for ticker in tickers:
-        try:
-            hist = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-            if hist.empty or len(hist) < 10:
-                results[ticker] = False
-                continue
-            t_ret = (float(hist["Close"].iloc[-1]) - float(hist["Close"].iloc[0])) / float(hist["Close"].iloc[0])
-            results[ticker] = t_ret > sp_ret
-            if results[ticker]:
-                beating += 1
-            time.sleep(0.2)
-        except Exception:
-            results[ticker] = False
-    print(f"  → {beating} stocks outperforming S&P 500 over 3 months")
+        print(f"  → Relative strength error: {e}. Skipping.")
     return results
 
 # ── sector concentration ──────────────────────────────────────────────────────

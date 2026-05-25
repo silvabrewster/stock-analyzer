@@ -115,7 +115,7 @@ def run_analyzer():
     vanguard_w    = get_vanguard_top_holdings()
     yahoo_data    = get_yahoo_strong_buys(universe)
     zacks_buys    = get_zacks_strong_buys()
-    ms_data       = get_morningstar_ratings(universe)
+    ms_data       = get_morningstar_ratings(universe, yahoo_data=yahoo_data)
     insiders      = get_insider_buyers()
     rs            = get_relative_strength(universe)
 
