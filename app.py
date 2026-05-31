@@ -225,6 +225,21 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 360) -> dict:
                     p  = fi.last_price or fi.regular_market_price
                     if p: prices[ticker] = round(float(p),2)
                 except: pass
+
+    # Fall back to latest scan price for any ticker still missing
+    still_missing = [t for t in tickers if t not in prices]
+    if still_missing:
+        for ticker in still_missing:
+            try:
+                row = conn.execute(
+                    "SELECT price FROM scans WHERE ticker=? AND price IS NOT NULL ORDER BY scan_date DESC LIMIT 1",
+                    (ticker,)
+                ).fetchone()
+                if row and row["price"]:
+                    prices[ticker] = round(float(row["price"]), 2)
+            except Exception:
+                pass
+
     return prices
 
 # ── alert throttle ────────────────────────────────────────────────────────────
@@ -929,7 +944,7 @@ def portfolio_add():
     if ticker and shares and buy_price:
         try:
             conn = get_db()
-            conn.execute("DELETE FROM portfolio WHERE ticker=?", (ticker,))
+            conn.execute("DELETE FROM portfolio WHERE ticker=? AND user_id=?", (ticker, user_id))
             conn.execute(
                 "INSERT INTO portfolio (ticker, user_id, shares, buy_price, notes) VALUES (?,?,?,?,?)",
                 (ticker, user_id, float(shares), float(buy_price), notes)
