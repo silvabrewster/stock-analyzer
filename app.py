@@ -11,8 +11,51 @@ from flask import Flask, render_template, request, session, redirect, url_for, j
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 import os
+import re
 import time
+import requests as _requests
 from datetime import datetime, timedelta
+
+_PRICE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+def _scrape_price(ticker: str):
+    """Get current price via direct HTTP — independent of yfinance."""
+    # Try Stooq (completely separate from Yahoo)
+    try:
+        symbol = ticker.lower().replace("-", ".") + ".us"
+        r = _requests.get(
+            f"https://stooq.com/q/l/?s={symbol}&f=sd2t2ohlcvn&h&e=csv",
+            headers=_PRICE_HEADERS, timeout=8
+        )
+        if r.status_code == 200:
+            lines = r.text.strip().split("\n")
+            if len(lines) >= 2:
+                cols = lines[0].split(",")
+                vals = lines[1].split(",")
+                data = dict(zip(cols, vals))
+                p = float(data.get("Close", 0) or 0)
+                if p > 0:
+                    return round(p, 2)
+    except Exception:
+        pass
+    # Try Yahoo Finance HTML page (different endpoint from yfinance API)
+    try:
+        r = _requests.get(
+            f"https://finance.yahoo.com/quote/{ticker}",
+            headers=_PRICE_HEADERS, timeout=8
+        )
+        if r.status_code == 200:
+            m = re.search(r'"regularMarketPrice"\s*:\s*\{"raw"\s*:\s*([\d.]+)', r.text)
+            if not m:
+                m = re.search(r'data-field="regularMarketPrice"[^>]*>([\d.]+)<', r.text)
+            if m:
+                return round(float(m.group(1)), 2)
+    except Exception:
+        pass
+    return None
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "stockconvergence2026")
@@ -226,19 +269,40 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 360) -> dict:
                     if p: prices[ticker] = round(float(p),2)
                 except: pass
 
-    # Fall back to latest scan price for any ticker still missing
+    # Fall back: scrape price from Stooq/Yahoo HTML for still-missing tickers
     still_missing = [t for t in tickers if t not in prices]
     if still_missing:
+        fetched_at = now.isoformat()
         for ticker in still_missing:
-            try:
-                row = conn.execute(
-                    "SELECT price FROM scans WHERE ticker=? AND price IS NOT NULL ORDER BY scan_date DESC LIMIT 1",
-                    (ticker,)
-                ).fetchone()
-                if row and row["price"]:
-                    prices[ticker] = round(float(row["price"]), 2)
-            except Exception:
-                pass
+            p = _scrape_price(ticker)
+            if p:
+                prices[ticker] = p
+                try:
+                    conn.execute(
+                        "INSERT INTO price_cache (ticker,price,fetched_at) VALUES (?,?,?) "
+                        "ON CONFLICT(ticker) DO UPDATE SET price=excluded.price,fetched_at=excluded.fetched_at",
+                        (ticker, p, fetched_at)
+                    )
+                except Exception:
+                    pass
+            time.sleep(0.5)
+        try:
+            conn.commit()
+        except Exception:
+            pass
+
+    # Last resort: use latest scan price from DB
+    still_missing = [t for t in tickers if t not in prices]
+    for ticker in still_missing:
+        try:
+            row = conn.execute(
+                "SELECT price FROM scans WHERE ticker=? AND price IS NOT NULL ORDER BY scan_date DESC LIMIT 1",
+                (ticker,)
+            ).fetchone()
+            if row and row["price"]:
+                prices[ticker] = round(float(row["price"]), 2)
+        except Exception:
+            pass
 
     return prices
 
