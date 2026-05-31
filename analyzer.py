@@ -255,16 +255,52 @@ def _no_alignment():
 
 
 def get_signal_alignments(tickers: list) -> dict:
-    """Fetch alignment for all tickers. Called during scanner run."""
-    print(f"\n[Signal Alignment] Checking {len(tickers)} tickers...")
+    """Bulk alignment using one yf.download() call instead of per-ticker downloads."""
+    print(f"\n[Signal Alignment] Calculating for {len(tickers)} tickers (bulk)...")
     results = {}
-    bullish = 0
-    for ticker in tickers:
-        results[ticker] = get_signal_alignment(ticker)
-        if results[ticker]["direction"] in ("bullish", "mostly_bullish"):
-            bullish += 1
-        time.sleep(0.15)
-    print(f"  → {bullish} tickers showing bullish alignment")
+    try:
+        hist_all = yf.download(tickers, period="1y", progress=False, auto_adjust=True)
+        if hist_all.empty:
+            print("  → Bulk download failed, skipping alignments")
+            return {t: _no_alignment() for t in tickers}
+        close_all = hist_all["Close"]
+        bullish = 0
+        for ticker in tickers:
+            try:
+                close = close_all[ticker].dropna() if ticker in close_all.columns else pd.Series()
+                if len(close) < 50:
+                    results[ticker] = _no_alignment()
+                    continue
+                last   = float(close.iloc[-1])
+                avg20  = float(close.tail(20).mean())
+                avg50  = float(close.tail(50).mean())
+                avg200 = float(close.tail(200).mean()) if len(close) >= 200 else float(close.mean())
+                short_bull = last > avg20
+                med_bull   = avg20 > avg50
+                long_bull  = avg50 > avg200
+                score = sum([short_bull, med_bull, long_bull])
+                if score == 3:
+                    direction, label = "bullish", "All Systems Go 🟢"
+                elif score == 0:
+                    direction, label = "bearish", "All Systems Down 🔴"
+                elif score == 2:
+                    direction, label = "mostly_bullish", "Mostly Bullish 🟡"
+                else:
+                    direction, label = "mixed", "Mixed Signals ⚪"
+                results[ticker] = {
+                    "aligned": score == 3 or score == 0,
+                    "direction": direction, "label": label,
+                    "short_term": short_bull, "medium_term": med_bull, "long_term": long_bull,
+                    "alignment_score": score,
+                }
+                if direction in ("bullish", "mostly_bullish"):
+                    bullish += 1
+            except Exception:
+                results[ticker] = _no_alignment()
+        print(f"  → {bullish} tickers showing bullish alignment")
+    except Exception as e:
+        print(f"  → Alignment bulk download failed: {e}")
+        return {t: _no_alignment() for t in tickers}
     return results
 
 # ── source 1: yahoo finance ───────────────────────────────────────────────────

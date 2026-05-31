@@ -168,7 +168,7 @@ def save_scan_to_db(df, market: dict):
 
 # ── batch price fetching ──────────────────────────────────────────────────────
 
-def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 20) -> dict:
+def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 360) -> dict:
     import yfinance as yf
     now        = datetime.now()
     prices     = {}
@@ -332,7 +332,7 @@ def dashboard():
             "SELECT ticker, shares, buy_price FROM portfolio WHERE user_id=?", (user_id,)
         ).fetchall()
         port_tickers = [pr["ticker"] for pr in port_rows]
-        live_prices  = batch_fetch_prices(port_tickers, conn, max_age_minutes=30) if port_tickers else {}
+        live_prices  = batch_fetch_prices(port_tickers, conn, max_age_minutes=360) if port_tickers else {}
         for pr in port_rows:
             scan = conn.execute(
                 "SELECT score FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 1",
@@ -811,7 +811,7 @@ def watchlist():
     items   = conn.execute("SELECT * FROM watchlist WHERE user_id=? ORDER BY added_date DESC", (user_id,)).fetchall()
     today   = datetime.now().strftime("%Y-%m-%d")
     tickers = [w["ticker"] for w in items]
-    prices  = batch_fetch_prices(tickers,conn) if tickers else {}
+    prices  = batch_fetch_prices(tickers, conn, max_age_minutes=360) if tickers else {}
     result  = []
     for w in items:
         ticker  = w["ticker"]
@@ -882,7 +882,7 @@ def portfolio():
     user_id = session.get("user", "default")
     rows    = conn.execute("SELECT * FROM portfolio WHERE user_id=? ORDER BY added_date DESC", (user_id,)).fetchall()
     tickers = [row["ticker"] for row in rows]
-    prices  = batch_fetch_prices(tickers,conn) if tickers else {}
+    prices  = batch_fetch_prices(tickers, conn, max_age_minutes=360) if tickers else {}
     holdings=[]; total_value=0; total_cost=0
     for row in rows:
         ticker=row["ticker"]; shares=row["shares"]; buy_price=row["buy_price"]
@@ -966,7 +966,7 @@ def api_portfolio_prices():
             try: conn.execute("DELETE FROM price_cache WHERE ticker=?",(t,))
             except: pass
         conn.commit()
-        prices=batch_fetch_prices(tickers,conn)
+        prices=batch_fetch_prices(tickers, conn, max_age_minutes=360)
     finally:
         conn.close()
     return jsonify([{"ticker":t,"current_price":prices.get(t),"current_value":round(shares_map[t]*prices[t],2) if prices.get(t) else None} for t in tickers if prices.get(t)])
