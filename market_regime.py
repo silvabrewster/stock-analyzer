@@ -116,18 +116,18 @@ def detect_market_regime(market: dict, top_stocks: list) -> dict:
     # What % of top 20 scanned stocks have score >= 60
     if top_stocks:
         total_weight += 4
-        high_score = sum(1 for s in top_stocks if (s.get("score") or 0) >= 60)
+        high_score = sum(1 for s in top_stocks if (s.get("score") or 0) >= 20)
         pct        = high_score / len(top_stocks) * 100
         if pct >= 60:
             bull_points += 4
-            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "bullish", "note": f"{high_score}/{len(top_stocks)} stocks scoring ≥60"})
+            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "bullish", "note": f"{high_score}/{len(top_stocks)} stocks scoring ≥20"})
         elif pct >= 35:
             bull_points += 2
             bear_points += 2
-            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "neutral", "note": f"{high_score}/{len(top_stocks)} stocks scoring ≥60"})
+            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "neutral", "note": f"{high_score}/{len(top_stocks)} stocks scoring ≥20"})
         else:
             bear_points += 4
-            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "bearish", "note": f"Only {high_score}/{len(top_stocks)} stocks scoring ≥60"})
+            signals.append({"name": "Score Breadth", "value": f"{pct:.0f}%", "signal": "bearish", "note": f"Only {high_score}/{len(top_stocks)} stocks scoring ≥20"})
 
     # ── Signal 5: Insider buying breadth (weight: 2) ──────────────────────
     if top_stocks:

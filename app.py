@@ -13,17 +13,20 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 import re
 import time
+import threading as _threading
+import uuid
 import requests as _requests
 from datetime import datetime, timedelta
 
 _PRICE_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
 }
 
 def _scrape_price(ticker: str):
-    """Get current price via direct HTTP — independent of yfinance."""
-    # Try Stooq (completely separate from Yahoo)
+    """Try Stooq CSV then Yahoo HTML for a current price. Returns float or None."""
+    # Stooq: free, no auth, reliable for US equities
     try:
         symbol = ticker.lower().replace("-", ".") + ".us"
         r = _requests.get(
@@ -41,7 +44,7 @@ def _scrape_price(ticker: str):
                     return round(p, 2)
     except Exception:
         pass
-    # Try Yahoo Finance HTML page (different endpoint from yfinance API)
+    # Yahoo Finance HTML (scrape regularMarketPrice)
     try:
         r = _requests.get(
             f"https://finance.yahoo.com/quote/{ticker}",
@@ -197,15 +200,16 @@ def save_scan_to_db(df, market: dict):
         conn.execute("""
             INSERT INTO scans (scan_date,ticker,score,sources,yahoo_sb,zacks,morningstar,
             insider,eps_rev,beats_sp,price,upside_pct,beta,div_yield,week52_pos,
-            short_pct,vol_spike,streak,is_new,sector)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            short_pct,vol_spike,streak,is_new,sector,alignment)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (today, row.get("Ticker"), safe("Consensus Score"), row.get("Sources Agree"),
               row.get("Yahoo SB"), row.get("Zacks #1"), row.get("Morningstar ★★★"),
               row.get("Insider Buy"), row.get("EPS Rev ↑"), row.get("Beats S&P"),
               safe("Price"), safe("Upside %"), safe("Beta"), safe("Div Yield"),
               safe("52w Position"), safe("Short %"),
               "1" if row.get("Vol Spike") else "0",
-              streak_int, row.get("New?",""), row.get("Sector","Unknown")))
+              streak_int, row.get("New?",""), row.get("Sector","Unknown"),
+              str(row.get("Alignment","")) if row.get("Alignment") else None))
     conn.commit()
     conn.close()
 
@@ -269,7 +273,7 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 360) -> dict:
                     if p: prices[ticker] = round(float(p),2)
                 except: pass
 
-    # Fall back: scrape price from Stooq/Yahoo HTML for still-missing tickers
+    # Stooq / Yahoo HTML fallback for anything still missing
     still_missing = [t for t in tickers if t not in prices]
     if still_missing:
         fetched_at = now.isoformat()
@@ -285,13 +289,12 @@ def batch_fetch_prices(tickers: list, conn, max_age_minutes: int = 360) -> dict:
                     )
                 except Exception:
                     pass
-            time.sleep(0.5)
         try:
             conn.commit()
         except Exception:
             pass
 
-    # Last resort: use latest scan price from DB
+    # Last resort: most recent price stored from a scan run
     still_missing = [t for t in tickers if t not in prices]
     for ticker in still_missing:
         try:
@@ -1086,17 +1089,14 @@ def earnings_calendar():
     return render_template("earnings.html",urgent=[e for e in earnings if e["days_away"]<=7],upcoming=[e for e in earnings if e["days_away"]>7])
 
 # ── backtest ──────────────────────────────────────────────────────────────────
-import threading as _threading
-_backtest_jobs = {}  # job_id -> {"status": "running"|"done"|"error", "result": ...}
+_backtest_jobs = {}
 
 @app.route("/backtest", methods=["GET","POST"])
 @login_required
 def backtest():
     if request.method == "POST":
-        import uuid
         job_id = str(uuid.uuid4())
         _backtest_jobs[job_id] = {"status": "running", "result": None}
-
         def _run(jid):
             conn = None
             try:
@@ -1105,15 +1105,12 @@ def backtest():
                 res  = run_backtest(conn)
                 _backtest_jobs[jid] = {"status": "done", "result": res}
             except Exception as e:
-                _backtest_jobs[jid] = {"status": "error", "result": {"error": str(e)}}
+                _backtest_jobs[jid] = {"status": "done", "result": {"error": str(e)}}
             finally:
                 if conn:
                     conn.close()
-
-        t = _threading.Thread(target=_run, args=(job_id,), daemon=True)
-        t.start()
+        _threading.Thread(target=_run, args=(job_id,), daemon=True).start()
         return jsonify({"job_id": job_id})
-
     return render_template("backtest.html", result=None)
 
 @app.route("/backtest/status/<job_id>")

@@ -11,8 +11,10 @@ Speed improvements:
 - Price cache table used for watchlist/portfolio
 """
 
+import os
 import time
 import requests
+from typing import Optional
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
@@ -107,9 +109,16 @@ Sentence 3: One specific thing to watch.
 
 Max 75 words. Sound like a Bloomberg terminal, not a textbook."""
 
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY not set")
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
             json={
                 "model": "claude-sonnet-4-20250514",
                 "max_tokens": 150,
@@ -359,7 +368,7 @@ def check_price_alerts(conn, top_tickers: list, resend_key: str, email_to: str):
 
 # ── EARNINGS CALENDAR (parallel, fast) ───────────────────────────────────────
 
-def _fetch_earnings_single(ticker: str) -> dict | None:
+def _fetch_earnings_single(ticker: str) -> Optional[dict]:
     """Fetch earnings for one ticker. Called in parallel."""
     try:
         import yfinance as yf

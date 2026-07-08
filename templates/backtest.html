@@ -109,65 +109,9 @@
   <p class="page-sub">Simulates buying the #1 ranked stock each day and tracks your hypothetical portfolio vs the S&P 500.</p>
 
   <button class="run-btn" id="run-btn" onclick="startBacktest()">▶ Run Backtest</button>
+
   <div id="bt-status" style="display:none;margin-top:12px;color:var(--muted);font-size:13px;">⏳ Running… this takes ~30 seconds</div>
   <div id="bt-result"></div>
-
-  <script>
-  async function startBacktest() {
-    document.getElementById('run-btn').disabled = true;
-    document.getElementById('run-btn').textContent = '⏳ Running…';
-    document.getElementById('bt-status').style.display = 'block';
-    document.getElementById('bt-result').innerHTML = '';
-    try {
-      const r = await fetch('/backtest', {method:'POST', headers:{'Content-Type':'application/json'}});
-      const {job_id} = await r.json();
-      pollBacktest(job_id);
-    } catch(e) {
-      showBtError('Failed to start backtest: ' + e);
-    }
-  }
-
-  function pollBacktest(job_id) {
-    const interval = setInterval(async () => {
-      try {
-        const r = await fetch('/backtest/status/' + job_id);
-        const job = await r.json();
-        if (job.status === 'done') {
-          clearInterval(interval);
-          document.getElementById('bt-status').style.display = 'none';
-          document.getElementById('run-btn').disabled = false;
-          document.getElementById('run-btn').textContent = '▶ Run Backtest';
-          renderBtResult(job.result);
-        } else if (job.status === 'error' || job.status === 'not_found') {
-          clearInterval(interval);
-          showBtError(job.result?.error || 'Unknown error');
-        }
-      } catch(e) { /* keep polling */ }
-    }, 3000);
-  }
-
-  function showBtError(msg) {
-    document.getElementById('bt-status').style.display = 'none';
-    document.getElementById('run-btn').disabled = false;
-    document.getElementById('run-btn').textContent = '▶ Run Backtest';
-    document.getElementById('bt-result').innerHTML = `<div class="empty"><div class="big">📊</div><p>${msg}</p></div>`;
-  }
-
-  function renderBtResult(r) {
-    if (r.error) { showBtError(r.error); return; }
-    const up = v => v > 0 ? 'up' : 'down';
-    const pct = v => (v > 0 ? '+' : '') + v + '%';
-    document.getElementById('bt-result').innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-label">Portfolio Return</div><div class="stat-value ${up(r.total_return)}">${r.total_return}%</div><div class="stat-sub">Starting $10,000</div></div>
-        <div class="stat-card"><div class="stat-label">Final Value</div><div class="stat-value">$${r.final_value.toLocaleString()}</div></div>
-        <div class="stat-card"><div class="stat-label">vs S&P 500</div><div class="stat-value ${up(r.alpha)}">${pct(r.alpha)}</div><div class="stat-sub">S&P: ${r.sp_return}%</div></div>
-        <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${up(r.win_rate-50)}">${r.win_rate}%</div><div class="stat-sub">${r.num_trades} trades</div></div>
-        <div class="stat-card"><div class="stat-label">Best Trade</div><div class="stat-value up">+${r.best_trade.return_pct}%</div><div class="stat-sub">${r.best_trade.ticker} on ${r.best_trade.date}</div></div>
-        <div class="stat-card"><div class="stat-label">Worst Trade</div><div class="stat-value down">${r.worst_trade.return_pct}%</div><div class="stat-sub">${r.worst_trade.ticker} on ${r.worst_trade.date}</div></div>
-      </div>`;
-  }
-  </script>
 
   <div class="disclaimer">
     ⚠️ <strong>Disclaimer:</strong> Backtest results are hypothetical and based on historical data. Past performance does not guarantee future results. This simulation assumes perfect execution at closing prices with no fees or slippage. Not financial advice.
@@ -178,6 +122,87 @@
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+
+async function startBacktest() {
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('bt-status').style.display = 'block';
+  document.getElementById('bt-result').innerHTML = '';
+  try {
+    const r = await fetch('/backtest', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const d = await r.json();
+    if (d.job_id) pollBacktest(d.job_id);
+    else showBtError(d.error || 'Failed to start backtest');
+  } catch(e) { showBtError(String(e)); }
+}
+
+async function pollBacktest(jobId) {
+  try {
+    const r = await fetch('/backtest/status/' + jobId);
+    const d = await r.json();
+    if (d.status === 'running') { setTimeout(() => pollBacktest(jobId), 2000); return; }
+    document.getElementById('bt-status').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    if (!d.result) { showBtError('No result returned.'); return; }
+    if (d.result.error) { showBtError(d.result.error); return; }
+    renderBtResult(d.result);
+  } catch(e) {
+    document.getElementById('bt-status').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    showBtError(String(e));
+  }
+}
+
+function showBtError(msg) {
+  document.getElementById('bt-result').innerHTML = `<div class="empty"><div class="big">📊</div><p>${msg}</p></div>`;
+}
+
+function renderBtResult(r) {
+  const retCls = r.total_return >= 0 ? 'up' : 'down';
+  const alphaCls = r.alpha >= 0 ? 'up' : 'down';
+  const winCls = r.win_rate > 50 ? 'up' : 'down';
+  const rows = (r.daily_results || []).map(d => {
+    const rc = d.return_pct >= 0 ? 'up' : 'down';
+    const sign = d.return_pct >= 0 ? '+' : '';
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">${d.date}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--gold);">${d.ticker}</td>
+      <td class="${rc}">${sign}${d.return_pct}%</td>
+      <td style="font-family:'DM Mono',monospace;">$${Number(d.portfolio).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('bt-result').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Portfolio Return</div><div class="stat-value ${retCls}">${r.total_return}%</div><div class="stat-sub">Starting $10,000</div></div>
+      <div class="stat-card"><div class="stat-label">Final Value</div><div class="stat-value">$${Number(r.final_value).toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="stat-sub">From $10,000</div></div>
+      <div class="stat-card"><div class="stat-label">vs S&P 500</div><div class="stat-value ${alphaCls}">${r.alpha >= 0 ? '+' : ''}${r.alpha}%</div><div class="stat-sub">Alpha generated</div></div>
+      <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${winCls}">${r.win_rate}%</div><div class="stat-sub">${r.num_trades} trades</div></div>
+      ${r.best_trade ? `<div class="stat-card"><div class="stat-label">Best Trade</div><div class="stat-value up">+${r.best_trade.return_pct}%</div><div class="stat-sub">${r.best_trade.ticker} on ${r.best_trade.date}</div></div>` : ''}
+      ${r.worst_trade ? `<div class="stat-card"><div class="stat-label">Worst Trade</div><div class="stat-value down">${r.worst_trade.return_pct}%</div><div class="stat-sub">${r.worst_trade.ticker} on ${r.worst_trade.date}</div></div>` : ''}
+    </div>
+    ${r.daily_results && r.daily_results.length ? `
+    <div class="chart-card"><div class="card-title">Portfolio Value Over Time</div><div class="chart-wrap"><canvas id="btChart"></canvas></div></div>
+    <div class="trade-table"><table>
+      <thead><tr><th>Date</th><th>Pick</th><th>Return</th><th>Portfolio Value</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>` : ''}
+  `;
+  if (r.daily_results && r.daily_results.length) {
+    const dates = r.daily_results.map(d => d.date);
+    const vals  = r.daily_results.map(d => d.portfolio);
+    new Chart(document.getElementById('btChart'), {
+      type: 'line',
+      data: { labels: dates, datasets: [{ label: 'Portfolio', data: vals, borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.08)', borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.y.toLocaleString() } } },
+        scales: {
+          y: { ticks: { color: '#6b7280', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(107,114,128,0.15)' } },
+          x: { ticks: { color: '#6b7280', font: { size: 10 }, maxRotation: 30 }, grid: { display: false } }
+        }
+      }
+    });
+  }
+}
 </script>
 </body>
 </html>
