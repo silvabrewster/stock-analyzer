@@ -1407,7 +1407,13 @@ def run_scan():
     return jsonify({"ok": True, "message": "Scan started — check back in ~2 minutes."})
 
 
-init_db()
+try:
+    init_db()
+except Exception as _e:
+    # Don't kill the whole app if the DB is unreachable at boot (e.g. paused
+    # Supabase project) — pages will show errors but /ping stays up and logs
+    # stay readable.
+    print(f"[boot] init_db failed — check DATABASE_URL / Supabase status: {_e}")
 _keepalive_thread()
 _daily_scan_thread()
 
