@@ -61,9 +61,13 @@ def _scrape_price(ticker: str):
     return None
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "stockconvergence2026")
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
-APP_PASSWORD   = os.environ.get("APP_PASSWORD", "convergence2026")
+APP_PASSWORD   = os.environ.get("APP_PASSWORD", "")
+
+@app.context_processor
+def inject_vapid_public():
+    return {"vapid_public": os.environ.get("VAPID_PUBLIC", "")}
 
 # ── database ──────────────────────────────────────────────────────────────────
 
@@ -343,13 +347,16 @@ def service_worker():
 def login():
     error = None
     if request.method == "POST":
-        if request.form.get("password") == APP_PASSWORD:
+        if not APP_PASSWORD:
+            error = "Server not configured: set the APP_PASSWORD environment variable."
+        elif request.form.get("password") == APP_PASSWORD:
             if request.form.get("remember_me"):
                 session.permanent = True
             session["logged_in"] = True
             session["user"] = request.form.get("username","").strip().lower() or "default"
             return redirect(url_for("dashboard"))
-        error = "Wrong password. Try again."
+        else:
+            error = "Wrong password. Try again."
     return render_template("login.html", error=error)
 
 @app.route("/logout")

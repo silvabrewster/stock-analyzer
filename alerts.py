@@ -9,18 +9,14 @@ hits its target price.
 import os
 import json
 
-VAPID_PRIVATE = os.environ.get(
-    "VAPID_PRIVATE",
-    "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgDwTlg--6JuFjR8pjnPpoewvvOHMdVnrHkRC0JBzPC-6hRANCAAT-nOf47BLsqE4QzlqWJ5gQgqO90EEgQwLyzyxo1NlogYe7lZ60xUmZGWwA5T0PPupu_97-Y4rL2p1b8QysJzQi"
-)
-VAPID_PUBLIC = os.environ.get(
-    "VAPID_PUBLIC",
-    "BP6c5_jsEuyoThDOWpYnmBCCo73QQSBDAvLPLGjU2WiBh7uVnrTFSZkZbADlPQ8-6m7_3v5jisvanVvxDKwnNCI"
-)
-VAPID_CLAIMS = {"sub": "mailto:silvabrayden0@gmail.com"}
+VAPID_PRIVATE = os.environ.get("VAPID_PRIVATE", "")
+VAPID_PUBLIC  = os.environ.get("VAPID_PUBLIC", "")
+VAPID_CLAIMS  = {"sub": "mailto:silvabrayden0@gmail.com"}
 
 
 def _send_push(subscription_info: dict, payload: dict):
+    if not VAPID_PRIVATE:
+        return
     try:
         from pywebpush import webpush
         webpush(

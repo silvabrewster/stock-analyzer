@@ -21,7 +21,7 @@ import pandas as pd
 
 EMAIL_FROM      = "onboarding@resend.dev"
 EMAIL_TO        = "silvabrayden0@gmail.com"
-RESEND_KEY      = os.environ.get("RESEND_KEY", "re_cWJizFpm_1zrGKUJ2djd7S5mbPQHKJorY")
+RESEND_KEY      = os.environ.get("RESEND_KEY", "")
 RUN_TIME        = "14:00"
 EXCEL_LOG       = "stock_results_log.xlsx"
 TOP_N           = 10
@@ -215,6 +215,9 @@ def send_email(df: pd.DataFrame, market: dict, warning, ai_brief: str = "", regi
       <p style="font-size:11px;color:#888;margin-top:16px;">Not financial advice. Always do your own research.</p>
     </body></html>"""
 
+    if not RESEND_KEY:
+        print("  ✗ Email skipped: RESEND_KEY env var not set")
+        return
     try:
         r = req.post(
             "https://api.resend.com/emails",
