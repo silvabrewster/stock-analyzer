@@ -41,19 +41,19 @@ def get_holding_signal(scan_score, gain_pct, streak=0) -> dict:
                 "detail": "Not yet in any scan"}
     score = int(scan_score)
     gain  = gain_pct or 0
-    if score >= 70 and gain > -5:
+    if score >= 25 and gain > -5:
         return {"emoji": "🔥", "label": "Strong Hold", "color": "var(--green)",
                 "detail": f"Score {score} — high conviction, consider adding"}
-    elif score >= 55 and gain > -10:
+    elif score >= 18 and gain > -10:
         return {"emoji": "✅", "label": "Hold", "color": "var(--green)",
                 "detail": f"Score {score} — positive signals"}
-    elif gain > 25 and score < 50:
+    elif gain > 25 and score < 15:
         return {"emoji": "💰", "label": "Take Profit", "color": "var(--yellow)",
                 "detail": f"Up {gain:.0f}% but score dropped to {score} — trim?"}
-    elif gain < -15 and score < 45:
+    elif gain < -15 and score < 15:
         return {"emoji": "🔴", "label": "Consider Exit", "color": "var(--red)",
                 "detail": f"Down {abs(gain):.0f}% with weak score {score} — review thesis"}
-    elif score < 45:
+    elif score < 15:
         return {"emoji": "👀", "label": "Watch", "color": "var(--yellow)",
                 "detail": f"Score {score} — signals weakening, monitor closely"}
     else:
@@ -156,7 +156,7 @@ def analyze_portfolio(holdings: list, conn=None) -> dict:
         })
 
     # ── Strong holdings ───────────────────────────────────────────────────
-    strong = [h for h in holdings if h.get("scan_score") and h["scan_score"] >= 65]
+    strong = [h for h in holdings if h.get("scan_score") and h["scan_score"] >= 22]
     if strong:
         tickers = ", ".join(h["ticker"] for h in strong)
         positives.append(f"Strong consensus on {tickers} — these are high-conviction holds")

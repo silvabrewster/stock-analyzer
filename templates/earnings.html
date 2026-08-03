@@ -111,7 +111,7 @@
       <div class="earn-date">{{ e.label }}</div>
       <span class="earn-days days-urgent">{{ 'Today' if e.days_away == 0 else ('Tomorrow' if e.days_away == 1 else e.days_away|string + 'd') }}</span>
       <span class="warn-badge">⚠️ Expect Volatility</span>
-      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 60 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
+      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 25 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
       <a href="{{ url_for('stock_detail', ticker=e.ticker) }}" class="detail-link">View →</a>
     </div>
     {% endfor %}
@@ -125,7 +125,7 @@
       <div class="earn-ticker">{{ e.ticker }}</div>
       <div class="earn-date">{{ e.label }}</div>
       <span class="earn-days days-soon">{{ e.days_away }}d away</span>
-      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 60 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
+      {% if e.score %}<span class="score-pill {{ 'score-high' if e.score >= 25 else 'score-mid' }}">Score: {{ e.score|int }}</span>{% endif %}
       <a href="{{ url_for('stock_detail', ticker=e.ticker) }}" class="detail-link">View →</a>
     </div>
     {% endfor %}

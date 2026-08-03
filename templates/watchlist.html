@@ -62,6 +62,7 @@
     .score-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; }
     .score-high { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
     .score-mid  { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
+    .score-low  { background: rgba(107,114,128,0.08); color: var(--muted); border: 1px solid var(--border); }
     .score-none { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
     .target-price { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .target-up   { color: var(--red); }
@@ -168,7 +169,7 @@
       </div>
       <div class="watch-score">
         {% if w.latest_score %}
-        <span class="score-pill {{ 'score-high' if w.latest_score >= 60 else 'score-mid' }}">{{ w.latest_score|int }}</span>
+        <span class="score-pill {{ 'score-high' if w.latest_score >= 25 else ('score-mid' if w.latest_score >= 15 else 'score-low') }}">{{ w.latest_score|int }}</span>
         {% else %}
         <span class="score-pill score-none">No scan data</span>
         {% endif %}

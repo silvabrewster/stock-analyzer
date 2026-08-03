@@ -135,10 +135,10 @@
     {% set border_alpha = (0.1 + intensity * 0.4) %}
     <div class="sector-tile" style="background: rgba({{ r }},{{ g }},{{ b }},0.9); border: 1px solid rgba(201,168,76,{{ border_alpha }});">
       <div class="sector-name">{{ s.sector }}</div>
-      <div class="sector-score" style="color: {{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }}">{{ s.avg_score|int }}</div>
+      <div class="sector-score" style="color: {{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }}">{{ s.avg_score|int }}</div>
       <div class="sector-count">{{ s.count }} stock{{ 's' if s.count != 1 else '' }} in top picks</div>
       <div class="sector-tickers">{{ s.tickers }}</div>
-      <div class="sector-bar" style="width: {{ s.avg_score }}%; background: {{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }};"></div>
+      <div class="sector-bar" style="width: {{ s.avg_score }}%; background: {{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }};"></div>
     </div>
     {% endfor %}
   </div>
@@ -157,7 +157,7 @@
           <td>
             <div class="bar-wrap">
               <div class="bar-track">
-                <div class="bar-fill" style="width:{{ s.avg_score }}%;background:{{ '#4ade80' if s.avg_score >= 60 else ('#fbbf24' if s.avg_score >= 40 else '#6b7280') }};"></div>
+                <div class="bar-fill" style="width:{{ s.avg_score }}%;background:{{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }};"></div>
               </div>
               <span style="font-family:'DM Mono',monospace;font-size:12px;">{{ s.avg_score|int }}</span>
             </div>

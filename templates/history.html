@@ -153,7 +153,7 @@
           <td>
             <div class="bar-wrap">
               <div class="bar-track"><div class="bar-fill" style="width:{{ s.avg_score }}%"></div></div>
-              <span class="score-pill {{ 'score-high' if s.avg_score >= 70 else ('score-mid' if s.avg_score >= 45 else 'score-low') }}">{{ '%0.0f'|format(s.avg_score) }}</span>
+              <span class="score-pill {{ 'score-high' if s.avg_score >= 25 else ('score-mid' if s.avg_score >= 15 else 'score-low') }}">{{ '%0.0f'|format(s.avg_score) }}</span>
             </div>
           </td>
           <td><span class="score-pill score-high">{{ '%0.0f'|format(s.max_score) }}</span></td>
@@ -179,7 +179,7 @@
         <tr>
           <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ d.scan_date }}</td>
           <td><a href="{{ url_for('stock_detail', ticker=d.ticker) }}" class="tk">{{ d.ticker }}</a></td>
-          <td><span class="score-pill {{ 'score-high' if d.score >= 70 else ('score-mid' if d.score >= 45 else 'score-low') }}">{{ '%0.0f'|format(d.score) }}</span></td>
+          <td><span class="score-pill {{ 'score-high' if d.score >= 25 else ('score-mid' if d.score >= 15 else 'score-low') }}">{{ '%0.0f'|format(d.score) }}</span></td>
           <td style="color:{{ '#4ade80' if (d.upside_pct or 0) >= 15 else ('#fbbf24' if (d.upside_pct or 0) >= 5 else '#f87171') }};">{{ ('%0.1f'|format(d.upside_pct) + '%') if d.upside_pct else '–' }}</td>
           <td style="font-size:12px;color:var(--muted);">{{ d.sector or '–' }}</td>
         </tr>

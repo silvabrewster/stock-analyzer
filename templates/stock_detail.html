@@ -212,7 +212,7 @@
         {% for row in history %}
         <tr>
           <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ row.scan_date }}</td>
-          <td><span class="score-pill {{ 'score-high' if row.score >= 70 else ('score-mid' if row.score >= 45 else 'score-low') }}">{{ row.score|int }}</span></td>
+          <td><span class="score-pill {{ 'score-high' if row.score >= 25 else ('score-mid' if row.score >= 15 else 'score-low') }}">{{ row.score|int }}</span></td>
           <td style="color:var(--muted);font-size:12px;">{{ row.sources or '–' }}</td>
           <td>{% if row.yahoo_sb == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>
           <td>{% if row.zacks == '✓' %}<span class="check">✓</span>{% else %}<span class="dash">–</span>{% endif %}</td>

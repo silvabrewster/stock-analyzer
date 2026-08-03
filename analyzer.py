@@ -647,10 +647,10 @@ def compute_consensus(
         if align:
             ascore = align.get("alignment_score", 0)
             adir   = align.get("direction", "")
-            if ascore == 3 and adir == "bullish" and score >= 40:
+            if ascore == 3 and adir == "bullish" and score >= 12:
                 alignment_bonus = 8   # full bullish alignment
                 alignment_label = "🎯"
-            elif ascore == 2 and adir == "mostly_bullish" and score >= 40:
+            elif ascore == 2 and adir == "mostly_bullish" and score >= 12:
                 alignment_bonus = 4
                 alignment_label = "↑"
             elif ascore == 0 and adir == "bearish":
@@ -730,11 +730,11 @@ def print_results(df: pd.DataFrame, top_n: int = 15, market: dict = {}):
     print(f"  S&P 500: {sp.get('price','n/a')} {sp_arrow}{abs(sp.get('chg',0))}%  |  "
           f"VIX: {vix.get('price','n/a')}  |  10yr Yield: {tny.get('price','n/a')}%")
     print("═" * 100)
-    high   = df[df["Consensus Score"] >= 60]
-    medium = df[(df["Consensus Score"] >= 35) & (df["Consensus Score"] < 60)]
-    print(f"\n🟢  HIGH CONVICTION  (score ≥ 60)  —  {len(high)} stocks\n")
+    high   = df[df["Consensus Score"] >= 20]
+    medium = df[(df["Consensus Score"] >= 10) & (df["Consensus Score"] < 20)]
+    print(f"\n🟢  HIGH CONVICTION  (score ≥ 20)  —  {len(high)} stocks\n")
     _print_table(high.head(top_n)) if not high.empty else print("  None found.")
-    print(f"\n🟡  MODERATE CONVICTION  (score 35–59)  —  {len(medium)} stocks\n")
+    print(f"\n🟡  MODERATE CONVICTION  (score 10–19)  —  {len(medium)} stocks\n")
     _print_table(medium.head(top_n)) if not medium.empty else print("  None found.")
     print("\n" + "─" * 100)
     print("Score: Yahoo(22)+Zacks(22)+MS(18)+Insider(12)+Vanguard(10)+EPS(8)+RS(8)+Alignment(+8 bonus)")

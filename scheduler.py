@@ -157,7 +157,7 @@ def send_email(df: pd.DataFrame, market: dict, warning, ai_brief: str = "", regi
         score  = row["Consensus Score"]
         upside = row.get("Upside %", "n/a")
         bg_row = "#f9f9f9" if i % 2 == 0 else "white"
-        sc, sb = ("#2d6a2d","#e6f4e6") if score >= 70 else (("#7a6a00","#fff8dc") if score >= 50 else ("#5f5e5a","#f1efe8"))
+        sc, sb = ("#2d6a2d","#e6f4e6") if score >= 25 else (("#7a6a00","#fff8dc") if score >= 15 else ("#5f5e5a","#f1efe8"))
         try:
             uv = float(str(upside).replace("%",""))
             uc = "#2d6a2d" if uv >= 15 else ("#7a6a00" if uv >= 5 else "#8b1a1a")

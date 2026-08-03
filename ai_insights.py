@@ -112,13 +112,13 @@ def _build_analysis(conn) -> dict:
                 AVG(CASE WHEN eps_rev='✓' THEN 1.0 ELSE 0.0 END) as eps_rate,
                 AVG(CASE WHEN beats_sp='✓' THEN 1.0 ELSE 0.0 END) as rs_rate,
                 AVG(score) as avg_score
-            FROM scans WHERE score >= 60
+            FROM scans WHERE score >= 20
         """).fetchone()
 
         # Sector breakdown of high scorers
         sectors = conn.execute("""
             SELECT sector, COUNT(*) as count, AVG(score) as avg_score
-            FROM scans WHERE score >= 55 AND sector IS NOT NULL AND sector != 'Unknown'
+            FROM scans WHERE score >= 18 AND sector IS NOT NULL AND sector != 'Unknown'
             GROUP BY sector ORDER BY avg_score DESC LIMIT 5
         """).fetchall()
 
@@ -136,7 +136,7 @@ def _build_analysis(conn) -> dict:
             SELECT
                 yahoo_sb, zacks, insider, eps_rev, beats_sp,
                 COUNT(*) as count, AVG(score) as avg_score
-            FROM scans WHERE score >= 65
+            FROM scans WHERE score >= 22
             GROUP BY yahoo_sb, zacks, insider, eps_rev, beats_sp
             ORDER BY count DESC LIMIT 5
         """).fetchall()

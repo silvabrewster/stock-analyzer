@@ -436,7 +436,7 @@ def get_smart_buy_rating(score, upside_pct, short_pct, week52_pos, beta, price, 
     b          = beta or 1.0
 
     # ── STRONG BUY ────────────────────────────────────────────────────────
-    if (score >= 70
+    if (score >= 25
         and upside >= 10
         and not above_target
         and short < 20
@@ -450,7 +450,7 @@ def get_smart_buy_rating(score, upside_pct, short_pct, week52_pos, beta, price, 
         }
 
     # ── BUY ───────────────────────────────────────────────────────────────
-    if (score >= 55
+    if (score >= 18
         and upside >= 5
         and not above_target
         and short < 25):
@@ -474,7 +474,7 @@ def get_smart_buy_rating(score, upside_pct, short_pct, week52_pos, beta, price, 
         }
 
     # ── AVOID — high short interest + weak score ──────────────────────────
-    if short > 25 and score < 55:
+    if short > 25 and score < 18:
         return {
             "rating": "avoid",
             "label":  "Avoid",
@@ -484,7 +484,7 @@ def get_smart_buy_rating(score, upside_pct, short_pct, week52_pos, beta, price, 
         }
 
     # ── AVOID — low score ─────────────────────────────────────────────────
-    if score < 40:
+    if score < 12:
         return {
             "rating": "avoid",
             "label":  "Avoid",

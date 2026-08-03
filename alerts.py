@@ -154,17 +154,17 @@ def check_alerts(conn):
         ).fetchall()
 
         if stocks:
-            # Check 1: Breakout — score >= 70 AND in top 3
+            # Check 1: Breakout — score >= 25 AND in top 3
             for i, s in enumerate(stocks[:3]):
                 key = f"{s['ticker']}_breakout"
-                if key not in fired_today and (s["score"] or 0) >= 70:
+                if key not in fired_today and (s["score"] or 0) >= 25:
                     new_alerts.append((s["ticker"], "breakout",
                         f"Score {int(s['score'])}/100 — ranked #{i+1} today"))
 
             # Check 2: Volume spike on high-score stock
             for s in stocks[:10]:
                 key = f"{s['ticker']}_volume"
-                if key not in fired_today and s.get("vol_spike")=="1" and (s["score"] or 0)>=55:
+                if key not in fired_today and s.get("vol_spike")=="1" and (s["score"] or 0)>=18:
                     new_alerts.append((s["ticker"], "volume",
                         f"Volume spike detected — score {int(s['score'])}/100"))
 

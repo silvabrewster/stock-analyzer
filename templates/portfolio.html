@@ -337,7 +337,7 @@
             <td style="font-family:'DM Mono',monospace;" class="value-cell-{{ h.ticker }}">${{ "{:,.2f}".format(h.current_value) }}</td>
             <td><div class="gain-bar-wrap"><div class="gain-bar"><div class="gain-fill" style="width:{{ [gain_pct|abs, 100]|min }}%;background:{{ 'var(--green)' if gain >= 0 else 'var(--red)' }};"></div></div><span class="{{ 'pos' if gain >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ '+' if gain >= 0 else '' }}${{ "{:,.0f}".format(gain) }}</span></div></td>
             <td><span class="{{ 'pos' if gain_pct >= 0 else 'neg' }}" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">{{ '+' if gain_pct >= 0 else '' }}{{ "%.1f"|format(gain_pct) }}%</span></td>
-            <td>{% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}">{{ h.scan_score|int }}</span>{% else %}<span style="color:var(--muted);font-size:11px;">not scanned</span>{% endif %}</td>
+            <td>{% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 25 else ('score-mid' if h.scan_score >= 15 else 'score-low') }}">{{ h.scan_score|int }}</span>{% else %}<span style="color:var(--muted);font-size:11px;">not scanned</span>{% endif %}</td>
             <td>{% if h.signal %}<span title="{{ h.signal.detail }}" style="cursor:help;font-size:12px;font-weight:600;color:{{ h.signal.color }};">{{ h.signal.emoji }} {{ h.signal.label }}</span>{% else %}<span style="color:var(--muted);">–</span>{% endif %}</td>
             <td style="color:var(--muted);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">{{ h.notes or '–' }}</td>
             <td><form method="POST" action="{{ url_for('portfolio_remove', ticker=h.ticker) }}" style="display:inline;" onsubmit="return confirm('Remove {{ h.ticker }}?')"><button type="submit" class="remove-btn">✕</button></form></td>
@@ -356,7 +356,7 @@
         <div class="holding-card-top">
           <div>
             <a href="{{ url_for('stock_detail', ticker=h.ticker) }}" class="holding-card-ticker">{{ h.ticker }}</a>
-            {% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 70 else ('score-mid' if h.scan_score >= 45 else 'score-low') }}" style="margin-left:8px;">{{ h.scan_score|int }}</span>{% endif %}
+            {% if h.scan_score %}<span class="score-badge {{ 'score-high' if h.scan_score >= 25 else ('score-mid' if h.scan_score >= 15 else 'score-low') }}" style="margin-left:8px;">{{ h.scan_score|int }}</span>{% endif %}
           </div>
           {% if h.signal %}<span class="holding-card-signal" style="color:{{ h.signal.color }};">{{ h.signal.emoji }} {{ h.signal.label }}</span>{% endif %}
         </div>

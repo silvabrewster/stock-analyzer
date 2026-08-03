@@ -1225,8 +1225,9 @@ def ping():
 @app.route("/api/run-scan", methods=["POST"])
 def api_run_scan():
     # Simple token check so only the cron job can trigger this
+    expected = os.environ.get("SCAN_TOKEN", "")
     token = request.headers.get("X-Scan-Token") or request.args.get("token","")
-    if token != os.environ.get("SCAN_TOKEN", ""):
+    if not expected or token != expected:
         return jsonify({"error": "unauthorized"}), 401
     import threading
     def _run():
