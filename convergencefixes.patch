@@ -1,0 +1,1611 @@
+From a04ed82a8cef9f063b627704e16c46ea08e86186 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 20 Aug 2026 03:59:29 +0000
+Subject: [PATCH 1/2] Fix stock detail 500 on sqlite and backtest returning
+ zero trades
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- app.py stock_detail: sqlite3.Row has no .get(); convert latest row to a
+  dict so the page renders on both SQLite and Postgres
+- features.py run_backtest: the pick quality gate was still score < 60 —
+  with the ~30-pt achievable max it skipped every pick, so backtests
+  reported no trades; lower to < 10 and use row indexing instead of .get()
+---
+ app.py      | 2 +-
+ features.py | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/app.py b/app.py
+index e6c160c..dd5a90a 100644
+--- a/app.py
++++ b/app.py
+@@ -836,7 +836,7 @@ def stock_detail(ticker):
+     conn   = get_db()
+     history = conn.execute("SELECT * FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 60",(ticker,)).fetchall()
+     stats   = conn.execute("SELECT COUNT(*) as appearances, AVG(score) as avg_score, MAX(score) as max_score, MAX(streak) as max_streak FROM scans WHERE ticker=?",(ticker,)).fetchone()
+-    latest         = history[0] if history else None
++    latest         = dict(history[0]) if history else None
+     latest_score   = int(latest["score"]) if latest else "–"
+     current_streak = latest["streak"] if latest else 0
+     appearances    = stats["appearances"] if stats else 0
+diff --git a/features.py b/features.py
+index 8130503..18e2f5a 100644
+--- a/features.py
++++ b/features.py
+@@ -284,7 +284,7 @@ def run_backtest(conn) -> dict:
+             except (KeyError, TypeError, ValueError):
+                 continue
+ 
+-            if (pick.get("score") or 0) < 60:
++            if (pick["score"] or 0) < 10:
+                 continue
+ 
+             # Use next day's stored price for same ticker if available, else next pick's price
+@@ -315,7 +315,7 @@ def run_backtest(conn) -> dict:
+             })
+ 
+         if not results:
+-            return {"error": "No trades could be calculated. Make sure scans have price data and scores ≥ 60."}
++            return {"error": "No trades could be calculated. Make sure scans have price data."}
+ 
+         total_return = round((portfolio - 10000) / 10000 * 100, 1)
+         sp_return    = round((sp_end - sp_start) / sp_start * 100, 1) if sp_start and sp_end else 0
+-- 
+2.43.0
+
+
+From eaee068d59b1d44277dd486cee43daacc146436a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 20 Aug 2026 04:28:34 +0000
+Subject: [PATCH 2/2] Fix Postgres transaction poisoning, multi-user data
+ collisions, and add health monitoring
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Database layer (database.py)
+- PostgresWrapper.execute() never rolled back on error. Postgres aborts the
+  whole transaction on any failure, so the first swallowed error silently broke
+  every later statement on that connection. Concretely: init_db()'s idempotent
+  ALTER TABLE migrations always fail on the first one (ai_brief is already in
+  the CREATE TABLE), which then blocked portfolio.user_id, watchlist.user_id
+  and the ai_predictions table from ever being created. Verified against a real
+  Postgres 16: before the fix later migrations raise InFailedSqlTransaction.
+- Added a public rollback(); both backends now expose it.
+- INSERT OR REPLACE translation matched only a spacing variant the callers do
+  not use, and spliced ON CONFLICT in before VALUES (invalid SQL). Push
+  subscribe therefore always failed on Postgres. Now matched by table name and
+  appended after VALUES.
+- Accept "postgres://" as well as "postgresql://" — the former silently fell
+  back to SQLite on ephemeral disk, losing all data on redeploy.
+
+Multi-user correctness (app.py, alerts.py)
+- portfolio/watchlist were UNIQUE(ticker) while rows are per-user, so the
+  second user to add a ticker hit a constraint violation (500 on watchlist,
+  silent data loss on portfolio). Now UNIQUE(ticker, user_id), with migrations
+  that swap the constraint on existing databases without losing rows.
+- /api/alerts returned every user's alerts, including portfolio P/L messages.
+  Alerts now carry user_id and are filtered on read and clear.
+
+Crashes and data loss
+- /seed was a GET that deletes the day's real scan results; now POST-only and
+  gated behind ALLOW_SEED.
+- /earnings had no guard around get_earnings_calendar, whose as_completed
+  timeout raises from the iterator — a 500 whenever Yahoo is slow or blocked.
+- Dashboard AI brief used .get() on a row, which raises on SQLite and was
+  swallowed by a bare except.
+
+Scoring and display
+- Morningstar (18-point weight) could never fire: fundamentals were only read
+  from an .info fetch that is skipped whenever yahoo_data supplies a price, so
+  ms_score capped at 2 against a threshold of 3. Now passed through from data
+  already fetched, at no extra request cost.
+- Market regime was computed every scan and never written to the DB.
+- Daily email rendered "$None" for every price when yfinance is blocked.
+- print_results crashed on abs(None) when the S&P quote was rate-limited.
+- Charts, sector heatmap and history bars were scaled to the dead 0-100 axis.
+- Checklist and analyze progress counted 13 items when 14 exist ("14 of 13",
+  108% bar).
+- Analyze page fed a 0-100 analyst score into thresholds calibrated for the
+  ~30-point convergence scale, printing "Strong Buy" for Hold-rated stocks.
+- SECTOR_MAP key was BRK.B while the universe uses BRK-B.
+- CLI conviction bands realigned to the 25/15 tiers used everywhere else.
+
+Reliability
+- Service worker was registered from /static/sw.js, whose scope controls no
+  page, so navigator.serviceWorker.ready never resolved and push subscription
+  hung forever. Now uses the root-scoped /sw.js route that already existed.
+- Connection leaks closed on the alerts and price-alert error paths.
+
+Monitoring (new: health.py, monitor.py, MONITORING.md)
+- GET /health self-diagnoses from inside the deployment: database, scan
+  freshness and quality, price coverage, backtest output, upstream reachability,
+  config presence, and renders every page server-side. 503 when critical.
+- monitor.py drives the live site from outside: logs in, loads every page,
+  compares stored prices against an independent source, and can ask Claude to
+  diagnose failures. Exit codes suit cron.
+- Both were validated by reintroducing two real bugs and confirming detection.
+---
+ MONITORING.md               |  73 +++++++
+ alerts.py                   |  27 ++-
+ analyzer.py                 |  29 ++-
+ app.py                      |  92 ++++++--
+ database.py                 |  64 ++++--
+ health.py                   | 406 ++++++++++++++++++++++++++++++++++++
+ market_regime.py            |   4 +-
+ monitor.py                  | 280 +++++++++++++++++++++++++
+ scheduler.py                |   6 +-
+ templates/ai_picks.html     |   2 +-
+ templates/analyze.html      |   2 +-
+ templates/backtest.html     |   2 +-
+ templates/checklist.html    |   4 +-
+ templates/compare.html      |   2 +-
+ templates/dashboard.html    |   2 +-
+ templates/earnings.html     |   2 +-
+ templates/history.html      |   4 +-
+ templates/momentum.html     |   2 +-
+ templates/portfolio.html    |   2 +-
+ templates/sectors.html      |   6 +-
+ templates/stock_detail.html |   4 +-
+ templates/watchlist.html    |   2 +-
+ 22 files changed, 937 insertions(+), 80 deletions(-)
+ create mode 100644 MONITORING.md
+ create mode 100644 health.py
+ create mode 100644 monitor.py
+
+diff --git a/MONITORING.md b/MONITORING.md
+new file mode 100644
+index 0000000..d2330a2
+--- /dev/null
++++ b/MONITORING.md
+@@ -0,0 +1,73 @@
++# Monitoring
++
++Two layers of checks, because they catch different failures.
++
++## `/health` — runs inside the deployment
++
++Hit it on the live site:
++
++```
++https://<your-app>.onrender.com/health          fast (~2s)
++https://<your-app>.onrender.com/health?full=1   also probes upstreams
++```
++
++Because it runs on the server, it can see things an outside caller cannot:
++the database connection, whether the scan actually wrote usable rows, whether
++prices resolve for every holding, and which external data sources answer from
++Render's IP. It renders every page server-side and reports which ones raise.
++
++Returns JSON: `ok`, `summary`, `failures[]`, and a `checks[]` array with a
++severity on each. HTTP 200 when healthy, 503 when a critical check fails, so
++uptime monitors work without parsing the body.
++
++No secrets are returned — environment variables report only whether they are
++set. To require a token anyway, set `HEALTH_TOKEN` and call
++`/health?token=...`.
++
++## `monitor.py` — runs from outside
++
++```bash
++pip install requests
++export APP_URL=https://<your-app>.onrender.com
++export APP_PASSWORD=<your login password>
++
++python monitor.py              # full report
++python monitor.py --quiet      # silent unless something is wrong
++python monitor.py --explain    # ask Claude to diagnose the failures
++python monitor.py --json       # machine-readable
++```
++
++It logs in like a real user and loads every page, so it also catches problems
++`/health` cannot see: Render asleep, TLS errors, redirect loops, and pages that
++return HTTP 200 while rendering an error. It then pulls `/health` and reports
++the internal diagnosis alongside its own findings.
++
++`--explain` needs `ANTHROPIC_API_KEY`. It sends only the failure lines (never
++credentials) and asks for a diagnosis with concrete fixes.
++
++Exit codes: `0` healthy, `1` degraded, `2` down — so it works in cron or CI.
++
++### Run it on a schedule
++
++Any cron host works. On cron-job.org, point a job at `/health` every 15 minutes
++and alert on non-200. To get the richer report by email, run `monitor.py` from
++a machine that is already on:
++
++```
++*/30 * * * * cd /path/to/stock-analyzer && APP_URL=... APP_PASSWORD=... \
++  python monitor.py --quiet --explain >> monitor.log 2>&1
++```
++
++## Reading the results
++
++Some failures are expected on the free tier and are not defects:
++
++| Finding | Meaning |
++| --- | --- |
++| `upstream.yahoo` blocked | Normal. Yahoo blocks Render IPs; prices fall back to Stooq. |
++| `scan.score_quality` ~12–30 | Normal. Analyst sources are blocked, so scores top out near 30. |
++| `database.connect` fails | Supabase project is paused, or `DATABASE_URL` is wrong. |
++| `config.APP_PASSWORD` missing | Nobody can log in until it is set in Render. |
++| `scan.freshness` several days old | Scans stopped running. Check the cron job. |
++| `page.*` non-200 | A real bug — that page is broken for users. |
++| `feature.backtest` 0 trades | The pick filter is rejecting everything. |
+diff --git a/alerts.py b/alerts.py
+index b17b1c7..61bad69 100644
+--- a/alerts.py
++++ b/alerts.py
+@@ -41,10 +41,10 @@ def send_push_to_all(conn, payload: dict):
+         print(f"Push broadcast error: {e}")
+ 
+ 
+-def save_alert(conn, ticker: str, alert_type: str, message: str):
++def save_alert(conn, ticker: str, alert_type: str, message: str, user_id: str = "default"):
+     conn.execute(
+-        "INSERT INTO alerts (ticker, type, message) VALUES (?, ?, ?)",
+-        (ticker, alert_type, message)
++        "INSERT INTO alerts (ticker, type, message, user_id) VALUES (?, ?, ?, ?)",
++        (ticker, alert_type, message, user_id)
+     )
+     icon_map = {
+         "breakout":    "📈",
+@@ -183,7 +183,7 @@ def check_alerts(conn):
+ 
+         # ── Check 4: Portfolio holdings ±5% ───────────────────────────────
+         try:
+-            portfolio = aconn.execute("SELECT DISTINCT ticker, buy_price FROM portfolio").fetchall()
++            portfolio = aconn.execute("SELECT DISTINCT ticker, buy_price, user_id FROM portfolio").fetchall()
+             import yfinance as yf
+             from concurrent.futures import ThreadPoolExecutor as _TPE, TimeoutError as _FT
+             def _get_price(t):
+@@ -202,7 +202,8 @@ def check_alerts(conn):
+                         if abs(chg) >= 5:
+                             direction = "up" if chg>0 else "down"
+                             new_alerts.append((ticker, "portfolio",
+-                                f"Your holding is {direction} {abs(chg):.1f}% from your buy price"))
++                                f"Your holding is {direction} {abs(chg):.1f}% from your buy price",
++                                holding["user_id"]))
+                 except Exception:
+                     pass
+         except Exception:
+@@ -211,7 +212,7 @@ def check_alerts(conn):
+         # ── Check 5: Watchlist price targets (NEW) ─────────────────────────
+         try:
+             watchlist = aconn.execute(
+-                "SELECT ticker, target_price FROM watchlist WHERE target_price IS NOT NULL"
++                "SELECT ticker, target_price, user_id FROM watchlist WHERE target_price IS NOT NULL"
+             ).fetchall()
+             import yfinance as yf
+             for w in watchlist:
+@@ -242,11 +243,13 @@ def check_alerts(conn):
+                         # Alert when price drops TO or BELOW target (buying opportunity)
+                         if diff_pct <= 0:
+                             new_alerts.append((ticker, "price_target",
+-                                f"Hit your target! Now at ${current_price:.2f} (target: ${target_price:.2f}) — potential buy zone"))
++                                f"Hit your target! Now at ${current_price:.2f} (target: ${target_price:.2f}) — potential buy zone",
++                                w["user_id"]))
+                         # Also alert when within 2% of target
+                         elif diff_pct <= 2:
+                             new_alerts.append((ticker, "price_target",
+-                                f"Near your target — ${current_price:.2f} is {diff_pct:.1f}% above your ${target_price:.2f} target"))
++                                f"Near your target — ${current_price:.2f} is {diff_pct:.1f}% above your ${target_price:.2f} target",
++                                w["user_id"]))
+                 except Exception:
+                     pass
+         except Exception:
+@@ -279,15 +282,17 @@ def check_alerts(conn):
+             print(f"Insider alert check error: {e}")
+ 
+         # Save all new alerts
+-        for ticker, atype, message in new_alerts:
+-            save_alert(aconn, ticker, atype, message)
++        for entry in new_alerts:
++            ticker, atype, message = entry[0], entry[1], entry[2]
++            user_id = entry[3] if len(entry) > 3 else "default"
++            save_alert(aconn, ticker, atype, message, user_id)
+         if new_alerts:
+             aconn.commit()
+ 
+     except Exception as e:
+         print(f"Alert check internal error: {e}")
+         try:
+-            if aconn: aconn._conn.rollback()
++            if aconn: aconn.rollback()
+         except Exception: pass
+     finally:
+         try:
+diff --git a/analyzer.py b/analyzer.py
+index a41a4c7..c68b6df 100644
+--- a/analyzer.py
++++ b/analyzer.py
+@@ -38,7 +38,7 @@ SECTOR_MAP = {
+     "SNOW":"Technology","PLTR":"Technology","CRWD":"Technology","NET":"Technology","ZS":"Technology",
+     "JPM":"Financial Services","BAC":"Financial Services","WFC":"Financial Services","GS":"Financial Services",
+     "MS":"Financial Services","V":"Financial Services","MA":"Financial Services","AXP":"Financial Services",
+-    "BRK.B":"Financial Services","C":"Financial Services","BLK":"Financial Services",
++    "BRK-B":"Financial Services","C":"Financial Services","BLK":"Financial Services",
+     "UNH":"Healthcare","LLY":"Healthcare","JNJ":"Healthcare","ABBV":"Healthcare","MRK":"Healthcare",
+     "PFE":"Healthcare","TMO":"Healthcare","ABT":"Healthcare","DHR":"Healthcare","ISRG":"Healthcare",
+     "XOM":"Energy","CVX":"Energy","COP":"Energy","SLB":"Energy","EOG":"Energy",
+@@ -369,6 +369,11 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
+                 "revision_up":        revision_up,
+                 "short_pct":          round(short_pct * 100, 1),
+                 "sector":             sector,
++                # Passed through for get_morningstar_ratings so it does not have
++                # to re-fetch .info for fundamentals we already have here.
++                "roe":                info.get("returnOnEquity"),
++                "profit_margin":      info.get("profitMargins"),
++                "forward_pe":         info.get("forwardPE"),
+             }
+             time.sleep(0.35)
+         except Exception as e:
+@@ -447,9 +452,13 @@ def get_morningstar_ratings(tickers: list, yahoo_data: dict = None) -> dict:
+                         current = t_obj.fast_info.last_price
+                 except Exception:
+                     pass
+-            roe           = info.get("returnOnEquity", 0) or 0
+-            profit_margin = info.get("profitMargins", 0) or 0
+-            forward_pe    = info.get("forwardPE")
++            # Prefer fundamentals already carried in yahoo_data. Previously these
++            # only came from the .info fetch above, which is skipped whenever
++            # yahoo_data supplied a price — so they were always 0 and ms_strong
++            # (which needs 3 points) could never be True.
++            roe           = y.get("roe")           or info.get("returnOnEquity", 0) or 0
++            profit_margin = y.get("profit_margin") or info.get("profitMargins", 0)  or 0
++            forward_pe    = y.get("forward_pe")    or info.get("forwardPE")
+             discount = None
+             if target and current and current > 0:
+                 discount = (target - current) / current
+@@ -687,7 +696,7 @@ def compute_consensus(
+             "52w Position":     f"{week52}%" if week52 is not None else "n/a",
+             "Beta":             beta if beta else "n/a",
+             "Div Yield":        f"{div}%" if div and div > 0 else "–",
+-            "Price":            y.get("current_price", "n/a"),
++            "Price":            y.get("current_price") if y.get("current_price") is not None else "n/a",
+             "Upside %":         f"{upside}%" if upside is not None else "n/a",
+             "# Analysts":       y.get("yahoo_num_analysts", "n/a"),
+             "Sector":           SECTOR_MAP.get(ticker) or (y.get("sector") or "Unknown"),
+@@ -727,14 +736,14 @@ def print_results(df: pd.DataFrame, top_n: int = 15, market: dict = {}):
+     print("  STOCK CONVERGENCE ANALYZER v3.1  —  7-Source | Signal Alignment")
+     print(f"  Run: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  Universe: {len(df)} tickers")
+     sp_arrow = "▲" if (sp.get("chg") or 0) > 0 else "▼"
+-    print(f"  S&P 500: {sp.get('price','n/a')} {sp_arrow}{abs(sp.get('chg',0))}%  |  "
++    print(f"  S&P 500: {sp.get('price','n/a')} {sp_arrow}{abs(sp.get('chg') or 0)}%  |  "
+           f"VIX: {vix.get('price','n/a')}  |  10yr Yield: {tny.get('price','n/a')}%")
+     print("═" * 100)
+-    high   = df[df["Consensus Score"] >= 20]
+-    medium = df[(df["Consensus Score"] >= 10) & (df["Consensus Score"] < 20)]
+-    print(f"\n🟢  HIGH CONVICTION  (score ≥ 20)  —  {len(high)} stocks\n")
++    high   = df[df["Consensus Score"] >= 25]
++    medium = df[(df["Consensus Score"] >= 15) & (df["Consensus Score"] < 25)]
++    print(f"\n🟢  HIGH CONVICTION  (score ≥ 25)  —  {len(high)} stocks\n")
+     _print_table(high.head(top_n)) if not high.empty else print("  None found.")
+-    print(f"\n🟡  MODERATE CONVICTION  (score 10–19)  —  {len(medium)} stocks\n")
++    print(f"\n🟡  MODERATE CONVICTION  (score 15–24)  —  {len(medium)} stocks\n")
+     _print_table(medium.head(top_n)) if not medium.empty else print("  None found.")
+     print("\n" + "─" * 100)
+     print("Score: Yahoo(22)+Zacks(22)+MS(18)+Insider(12)+Vanguard(10)+EPS(8)+RS(8)+Alignment(+8 bonus)")
+diff --git a/app.py b/app.py
+index dd5a90a..f5479bd 100644
+--- a/app.py
++++ b/app.py
+@@ -99,17 +99,25 @@ def init_db():
+             week52_range TEXT, beats_mkt TEXT, mo_return TEXT, insider_buy TEXT,
+             short_squeeze TEXT, short_float TEXT, signals TEXT,
+             created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
++        # Rows are per-user, so uniqueness must be (ticker, user_id). A bare
++        # UNIQUE(ticker) means the second user to add a ticker hits a constraint
++        # violation instead of getting their own row.
+         """CREATE TABLE IF NOT EXISTS portfolio (
+-            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL UNIQUE,
++            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
+             shares REAL NOT NULL, buy_price REAL NOT NULL, notes TEXT,
+-            added_date TEXT DEFAULT CURRENT_TIMESTAMP)""",
++            user_id TEXT NOT NULL DEFAULT 'default',
++            added_date TEXT DEFAULT CURRENT_TIMESTAMP,
++            UNIQUE(ticker, user_id))""",
+         """CREATE TABLE IF NOT EXISTS watchlist (
+-            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL UNIQUE,
++            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
+             target_price REAL, notes TEXT,
+-            added_date TEXT DEFAULT CURRENT_TIMESTAMP)""",
++            user_id TEXT NOT NULL DEFAULT 'default',
++            added_date TEXT DEFAULT CURRENT_TIMESTAMP,
++            UNIQUE(ticker, user_id))""",
+         """CREATE TABLE IF NOT EXISTS alerts (
+             id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
+             type TEXT NOT NULL, message TEXT NOT NULL, seen INTEGER DEFAULT 0,
++            user_id TEXT NOT NULL DEFAULT 'default',
+             created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+         """CREATE TABLE IF NOT EXISTS push_subscriptions (
+             id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
+@@ -141,6 +149,14 @@ def init_db():
+         "ALTER TABLE market_conditions ADD COLUMN regime_confidence INTEGER",
+         "ALTER TABLE portfolio ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
+         "ALTER TABLE watchlist ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
++        "ALTER TABLE alerts ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
++        # Replace the old single-column UNIQUE(ticker) with UNIQUE(ticker, user_id)
++        # on databases created before the fix. Postgres only; SQLite cannot drop a
++        # constraint, and these are best-effort, so it simply skips there.
++        "ALTER TABLE portfolio DROP CONSTRAINT IF EXISTS portfolio_ticker_key",
++        "ALTER TABLE watchlist DROP CONSTRAINT IF EXISTS watchlist_ticker_key",
++        "ALTER TABLE portfolio ADD CONSTRAINT portfolio_ticker_user_key UNIQUE (ticker, user_id)",
++        "ALTER TABLE watchlist ADD CONSTRAINT watchlist_ticker_user_key UNIQUE (ticker, user_id)",
+         """CREATE TABLE IF NOT EXISTS ai_predictions (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             prediction_date TEXT NOT NULL,
+@@ -184,11 +200,14 @@ def save_scan_to_db(df, market: dict):
+     tny = market.get("tny", {})
+     conn.execute("""
+         INSERT INTO market_conditions
+-        (scan_date, sp500, sp500_chg, vix, tny, ai_brief)
+-        VALUES (?,?,?,?,?,?)
++        (scan_date, sp500, sp500_chg, vix, tny, ai_brief,
++         regime, regime_label, regime_confidence)
++        VALUES (?,?,?,?,?,?,?,?,?)
+     """, (today, _to_float(sp.get("price")), _to_float(sp.get("chg")),
+           _to_float(vix.get("price")), _to_float(tny.get("price")),
+-          market.get("ai_brief","")))
++          market.get("ai_brief",""),
++          market.get("regime"), market.get("regime_label"),
++          market.get("regime_confidence")))
+     for _, row in df.head(20).iterrows():
+         def safe(key, default=None):
+             v = row.get(key, default)
+@@ -394,7 +413,7 @@ def dashboard():
+         brief_row = conn.execute(
+             "SELECT ai_brief FROM market_conditions WHERE scan_date = ?", (latest_date,)
+         ).fetchone()
+-        if brief_row and brief_row.get("ai_brief"):
++        if brief_row and brief_row["ai_brief"]:
+             ai_brief = brief_row["ai_brief"]
+     except Exception:
+         pass
+@@ -742,7 +761,10 @@ def api_analyze(ticker):
+         )
+         from features import get_smart_buy_rating
+         smart_buy = get_smart_buy_rating(
+-            score=analyst_score, upside_pct=upside, short_pct=short_pct,
++            # analyst_score is 0-100, but get_smart_buy_rating's thresholds are on
++            # the ~0-30 convergence scale. Passing it raw made a neutral 3.0
++            # analyst rating clear the "Strong Buy" bar twice over.
++            score=round(analyst_score * 0.30), upside_pct=upside, short_pct=short_pct,
+             week52_pos=week52_pos, beta=beta, price=price, price_target=price_target
+         )
+         alignment = {}
+@@ -1091,7 +1113,13 @@ def earnings_calendar():
+     conn.close()
+     if not tickers_in_scan: return render_template("earnings.html",urgent=[],upcoming=[])
+     from features import get_earnings_calendar
+-    earnings=get_earnings_calendar(tickers_in_scan[:15])
++    try:
++        # as_completed(timeout=20) raises out of the iterator, not the worker, so
++        # a blocked/slow Yahoo (the norm on Render) would 500 the whole page.
++        earnings=get_earnings_calendar(tickers_in_scan[:15])
++    except Exception as e:
++        print(f"Earnings calendar error: {e}")
++        return render_template("earnings.html",urgent=[],upcoming=[])
+     for e in earnings: e["score"]=scores.get(e["ticker"])
+     return render_template("earnings.html",urgent=[e for e in earnings if e["days_away"]<=7],upcoming=[e for e in earnings if e["days_away"]>7])
+ 
+@@ -1153,8 +1181,17 @@ def api_portfolio_earnings():
+ @login_required
+ def api_alerts():
+     conn=get_db()
+-    rows=conn.execute("SELECT id,ticker,type,message,created_at FROM alerts WHERE seen=0 ORDER BY created_at DESC LIMIT 20").fetchall()
+-    conn.close()
++    try:
++        # Alerts are generated from a user's own portfolio/watchlist, so they
++        # must not be shown to anyone else. 'default' stays visible to all so
++        # alerts created before user scoping existed are not orphaned.
++        rows=conn.execute(
++            "SELECT id,ticker,type,message,created_at FROM alerts "
++            "WHERE seen=0 AND (user_id=? OR user_id='default') "
++            "ORDER BY created_at DESC LIMIT 20",
++            (session.get("user","default"),)).fetchall()
++    finally:
++        conn.close()
+     return jsonify({"alerts":[dict(r) for r in rows]})
+ 
+ @app.route("/api/alerts/clear",methods=["POST"])
+@@ -1162,7 +1199,8 @@ def api_alerts():
+ def api_alerts_clear():
+     conn=get_db()
+     try:
+-        conn.execute("UPDATE alerts SET seen=1 WHERE seen=0")
++        conn.execute("UPDATE alerts SET seen=1 WHERE seen=0 AND (user_id=? OR user_id='default')",
++                     (session.get("user","default"),))
+         conn.commit()
+     finally:
+         conn.close()
+@@ -1229,6 +1267,27 @@ def api_institutional(ticker):
+ def ping():
+     return "pong",200
+ 
++@app.route("/health")
++def health():
++    """Self-diagnostic. ?full=1 also probes upstreams and renders slow pages.
++    Set HEALTH_TOKEN to require ?token=... ; otherwise open (returns no secrets)."""
++    expected = os.environ.get("HEALTH_TOKEN", "")
++    if expected:
++        token = request.headers.get("X-Health-Token") or request.args.get("token", "")
++        if token != expected:
++            return jsonify({"error": "unauthorized"}), 401
++    try:
++        from health import run_health_check
++        result = run_health_check(
++            app, get_db, batch_fetch_prices, _scrape_price,
++            full=request.args.get("full") in ("1", "true", "yes"),
++        )
++        return jsonify(result), (200 if result["ok"] else 503)
++    except Exception as e:
++        import traceback
++        return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}",
++                        "trace": traceback.format_exc()[-1500:]}), 500
++
+ @app.route("/api/run-scan", methods=["POST"])
+ def api_run_scan():
+     # Simple token check so only the cron job can trigger this
+@@ -1298,9 +1357,14 @@ def api_ai_picks_regenerate():
+     conn.close()
+     return redirect(url_for("ai_picks"))
+ 
+-@app.route("/seed")
++@app.route("/seed", methods=["POST"])
+ @login_required
+ def seed():
++    # POST-only and opt-in: this deletes the day's real scan results and
++    # replaces them with demo rows. As a GET route any prefetch or link
++    # scanner could silently destroy a live scan.
++    if os.environ.get("ALLOW_SEED", "") != "1":
++        return jsonify({"error": "Seeding is disabled. Set ALLOW_SEED=1 to enable."}), 403
+     conn=get_db(); today=datetime.now().strftime("%Y-%m-%d")
+     conn.execute("DELETE FROM scans WHERE scan_date=?",(today,)); conn.execute("DELETE FROM market_conditions WHERE scan_date=?",(today,))
+     conn.execute("INSERT INTO market_conditions (scan_date,sp500,sp500_chg,vix,tny,regime,regime_label,regime_confidence) VALUES (?,?,?,?,?,?,?,?)",(today,5234.18,0.43,18.2,4.31,"neutral_bull","Cautious Bull",62))
+diff --git a/database.py b/database.py
+index 9dd70fc..c40c412 100644
+--- a/database.py
++++ b/database.py
+@@ -12,7 +12,10 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
+ 
+ def get_db():
+     url = os.environ.get("DATABASE_URL", "")
+-    if url and url.startswith("postgresql"):
++    # Providers hand out both "postgresql://" and "postgres://" — psycopg2 accepts
++    # either, so accept both here. Rejecting one silently falls back to SQLite on
++    # ephemeral disk, which loses every scan on the next deploy.
++    if url and url.startswith(("postgresql", "postgres://")):
+         return get_postgres(url)
+     return get_sqlite()
+ 
+@@ -30,6 +33,20 @@ def get_postgres(url=None):
+     conn.autocommit = False
+     return PostgresWrapper(conn)
+ 
++# SQLite's "INSERT OR REPLACE" has no direct Postgres equivalent; each table
++# needs its own ON CONFLICT clause, appended AFTER the VALUES list.
++_UPSERT_CLAUSES = {
++    "watchlist": ("ON CONFLICT (ticker) DO UPDATE SET "
++                  "target_price=EXCLUDED.target_price, notes=EXCLUDED.notes"),
++    "portfolio": ("ON CONFLICT (ticker) DO UPDATE SET "
++                  "shares=EXCLUDED.shares, buy_price=EXCLUDED.buy_price, "
++                  "notes=EXCLUDED.notes"),
++    "push_subscriptions": ("ON CONFLICT (endpoint) DO UPDATE SET "
++                           "p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth, "
++                           "updated_at=CURRENT_TIMESTAMP"),
++}
++
++
+ class PostgresWrapper:
+     def __init__(self, conn):
+         self._conn   = conn
+@@ -38,28 +55,26 @@ class PostgresWrapper:
+     def execute(self, sql, params=()):
+         sql = sql.replace("?", "%s")
+         sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+-        if "INSERT OR REPLACE INTO watchlist" in sql:
+-            sql = sql.replace(
+-                "INSERT OR REPLACE INTO watchlist (ticker, target_price, notes)",
+-                "INSERT INTO watchlist (ticker, target_price, notes) "
+-                "ON CONFLICT (ticker) DO UPDATE SET "
+-                "target_price=EXCLUDED.target_price, notes=EXCLUDED.notes"
+-            )
+-        if "INSERT OR REPLACE INTO portfolio" in sql:
+-            sql = sql.replace(
+-                "INSERT OR REPLACE INTO portfolio (ticker, shares, buy_price, notes)",
+-                "INSERT INTO portfolio (ticker, shares, buy_price, notes) "
+-                "ON CONFLICT (ticker) DO UPDATE SET "
+-                "shares=EXCLUDED.shares, buy_price=EXCLUDED.buy_price, notes=EXCLUDED.notes"
+-            )
+-        if "INSERT OR REPLACE INTO push_subscriptions" in sql:
+-            sql = sql.replace(
+-                "INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth)",
+-                "INSERT INTO push_subscriptions (endpoint, p256dh, auth) "
+-                "ON CONFLICT (endpoint) DO UPDATE SET "
+-                "p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth, updated_at=CURRENT_TIMESTAMP"
+-            )
+-        self._cursor.execute(sql, params if params else None)
++        if "INSERT OR REPLACE INTO" in sql:
++            for table, clause in _UPSERT_CLAUSES.items():
++                # Match on the table name only, so the caller's column spacing
++                # does not matter, and append the clause after VALUES.
++                if f"INSERT OR REPLACE INTO {table}" in sql:
++                    sql = sql.replace("INSERT OR REPLACE INTO", "INSERT INTO", 1)
++                    sql = sql.rstrip().rstrip(";") + " " + clause
++                    break
++        try:
++            self._cursor.execute(sql, params if params else None)
++        except Exception:
++            # Postgres aborts the whole transaction on any error: without this
++            # rollback every later statement on this connection fails too, so a
++            # single swallowed error (e.g. an idempotent migration) would
++            # silently break everything after it.
++            try:
++                self._conn.rollback()
++            except Exception:
++                pass
++            raise
+         return self
+ 
+     def fetchone(self):
+@@ -73,6 +88,9 @@ class PostgresWrapper:
+     def commit(self):
+         self._conn.commit()
+ 
++    def rollback(self):
++        self._conn.rollback()
++
+     def close(self):
+         try:
+             self._cursor.close()
+diff --git a/health.py b/health.py
+new file mode 100644
+index 0000000..a9c1b4d
+--- /dev/null
++++ b/health.py
+@@ -0,0 +1,406 @@
++"""
++health.py
++=========
++Self-diagnostic for the live app. Runs INSIDE the deployment, so it sees the
++real database, the real network egress, and the real environment — the things
++an outside caller cannot inspect.
++
++GET /health          fast checks only (safe for uptime pings, ~2s)
++GET /health?full=1   also renders every page server-side and probes upstreams
++
++Returns JSON: {"ok": bool, "checks": [{name, ok, detail, severity}], ...}
++Nothing sensitive is returned — env vars report only whether they are set.
++"""
++
++import os
++from datetime import datetime, timedelta
++
++# Pages rendered during a full check. Anything hitting yfinance hard is marked
++# slow=True so a fast check stays quick.
++_PAGES = [
++    ("/",             "dashboard", False),
++    ("/history",      "history",   False),
++    ("/sectors",      "sectors",   False),
++    ("/watchlist",    "watchlist", False),
++    ("/portfolio",    "portfolio", False),
++    ("/compare",      "compare",   False),
++    ("/backtest",     "backtest",  False),
++    ("/checklist",    "checklist", False),
++    ("/ai-picks",     "ai_picks",  False),
++    ("/momentum",     "momentum",  True),
++    ("/analyze",      "analyze",   True),
++    ("/earnings",     "earnings",  True),
++]
++
++# Reference tickers used for the "is our price data actually correct" check.
++_PRICE_REFS = ["AAPL", "MSFT"]
++
++
++def _check(name, ok, detail, severity="high"):
++    return {"name": name, "ok": bool(ok), "detail": detail, "severity": severity}
++
++
++def _fmt_age(dt):
++    delta = datetime.now() - dt
++    days, secs = delta.days, delta.seconds
++    if days > 0:
++        return f"{days}d ago"
++    if secs >= 3600:
++        return f"{secs // 3600}h ago"
++    return f"{secs // 60}m ago"
++
++
++def _parse_dt(value):
++    """Parse the mixed timestamp formats stored across SQLite and Postgres."""
++    if isinstance(value, datetime):
++        return value
++    if not value:
++        return None
++    text = str(value).replace(" ", "T").split("+")[0].split(".")[0]
++    try:
++        return datetime.fromisoformat(text)
++    except Exception:
++        try:
++            return datetime.strptime(str(value)[:10], "%Y-%m-%d")
++        except Exception:
++            return None
++
++
++# ── individual checks ─────────────────────────────────────────────────────────
++
++def _check_database(get_db):
++    try:
++        conn = get_db()
++    except Exception as e:
++        return [_check("database.connect", False,
++                       f"Cannot connect: {e}. Check DATABASE_URL and whether the "
++                       f"Supabase project is paused.", "critical")], None
++    checks = [_check("database.connect", True, "Connected", "critical")]
++    try:
++        for table in ("scans", "market_conditions", "portfolio", "watchlist",
++                      "price_cache", "favorites", "alerts"):
++            try:
++                row = conn.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()
++                count = row["c"] if row else 0
++                checks.append(_check(f"database.table.{table}", True,
++                                     f"{count} rows", "medium"))
++            except Exception as e:
++                checks.append(_check(f"database.table.{table}", False,
++                                     f"Query failed: {e}", "critical"))
++    except Exception as e:
++        checks.append(_check("database.tables", False, str(e), "critical"))
++    return checks, conn
++
++
++def _check_scan_data(conn):
++    """The scan pipeline is the heart of the app — verify it produced usable rows."""
++    checks = []
++    try:
++        row = conn.execute(
++            "SELECT scan_date, COUNT(*) AS c FROM scans "
++            "GROUP BY scan_date ORDER BY scan_date DESC LIMIT 1"
++        ).fetchone()
++    except Exception as e:
++        return [_check("scan.latest", False, f"Query failed: {e}", "critical")]
++
++    if not row:
++        return [_check("scan.latest", False,
++                       "No scans in the database at all. Run a scan.", "critical")]
++
++    scan_date = row["scan_date"]
++    count     = row["c"]
++    parsed    = _parse_dt(scan_date)
++    age_days  = (datetime.now() - parsed).days if parsed else None
++
++    stale = age_days is not None and age_days > 4
++    checks.append(_check(
++        "scan.freshness", not stale,
++        f"Latest scan {scan_date} ({count} stocks)"
++        + (f", {age_days}d old — scans may have stopped running" if stale else ""),
++        "high"))
++
++    # A scan that "succeeded" but wrote empty columns is the silent failure mode
++    # that makes the dashboard show blanks and "Unknown".
++    try:
++        q = conn.execute(
++            "SELECT COUNT(*) AS total,"
++            " SUM(CASE WHEN score IS NULL OR score = 0 THEN 1 ELSE 0 END) AS no_score,"
++            " SUM(CASE WHEN price IS NULL OR price = 0 THEN 1 ELSE 0 END) AS no_price,"
++            " SUM(CASE WHEN sector IS NULL OR sector = 'Unknown' THEN 1 ELSE 0 END) AS no_sector,"
++            " MAX(score) AS max_score"
++            " FROM scans WHERE scan_date = ?", (scan_date,)
++        ).fetchone()
++        total     = q["total"] or 0
++        no_price  = q["no_price"] or 0
++        no_sector = q["no_sector"] or 0
++        max_score = q["max_score"] or 0
++
++        checks.append(_check(
++            "scan.prices", total > 0 and no_price < total,
++            f"{total - no_price}/{total} stocks have a price"
++            + (" — price source failed during the scan" if no_price == total else ""),
++            "high"))
++        checks.append(_check(
++            "scan.sectors", total > 0 and no_sector < total,
++            f"{total - no_sector}/{total} stocks have a sector"
++            + (" — all Unknown, sector lookup failed" if no_sector == total else ""),
++            "medium"))
++        # Max score tells us how many data sources actually answered.
++        if max_score >= 25:
++            detail, ok = f"Top score {max_score:.0f} — most sources responded", True
++        elif max_score >= 12:
++            detail, ok = (f"Top score {max_score:.0f} — analyst sources blocked, "
++                          f"running on insider/Vanguard/momentum only"), True
++        else:
++            detail, ok = (f"Top score {max_score:.0f} — nearly every data source "
++                          f"failed; scores are not meaningful"), False
++        checks.append(_check("scan.score_quality", ok, detail, "high"))
++    except Exception as e:
++        checks.append(_check("scan.columns", False, f"Query failed: {e}", "high"))
++
++    return checks
++
++
++def _check_prices(conn, batch_fetch_prices, scrape_price):
++    """Can we resolve a current price, and is it actually correct?"""
++    checks = []
++
++    try:
++        row = conn.execute(
++            "SELECT COUNT(*) AS c, MAX(fetched_at) AS newest FROM price_cache"
++        ).fetchone()
++        newest = _parse_dt(row["newest"]) if row else None
++        checks.append(_check(
++            "price.cache", bool(row and row["c"]),
++            f"{row['c'] if row else 0} cached"
++            + (f", newest {_fmt_age(newest)}" if newest else ""),
++            "medium"))
++    except Exception as e:
++        checks.append(_check("price.cache", False, str(e), "medium"))
++
++    # Every portfolio holding must resolve to a price or the P/L is wrong —
++    # this is exactly the "portfolio shows 0% gain" failure.
++    try:
++        rows = conn.execute("SELECT DISTINCT ticker FROM portfolio").fetchall()
++        tickers = [r["ticker"] for r in rows]
++        if tickers:
++            prices  = batch_fetch_prices(tickers, conn)
++            missing = [t for t in tickers if not prices.get(t)]
++            checks.append(_check(
++                "price.portfolio_coverage", not missing,
++                f"{len(tickers) - len(missing)}/{len(tickers)} holdings priced"
++                + (f"; missing {', '.join(missing)}" if missing else ""),
++                "high"))
++        else:
++            checks.append(_check("price.portfolio_coverage", True,
++                                 "No holdings to price", "low"))
++    except Exception as e:
++        checks.append(_check("price.portfolio_coverage", False, str(e), "high"))
++
++    return checks
++
++
++def _check_price_accuracy(conn, scrape_price):
++    """Compare our stored price against an independent source (slow: network)."""
++    checks = []
++    for ticker in _PRICE_REFS:
++        try:
++            ref = scrape_price(ticker)
++            if not ref:
++                checks.append(_check(f"accuracy.{ticker}", False,
++                                     "Reference source unreachable — cannot verify",
++                                     "medium"))
++                continue
++            row = conn.execute(
++                "SELECT price FROM price_cache WHERE ticker = ?", (ticker,)
++            ).fetchone()
++            if not row or not row["price"]:
++                checks.append(_check(f"accuracy.{ticker}", True,
++                                     f"Reference ${ref} (nothing cached to compare)",
++                                     "low"))
++                continue
++            ours = float(row["price"])
++            drift = abs(ours - ref) / ref * 100 if ref else 0
++            checks.append(_check(
++                f"accuracy.{ticker}", drift <= 10,
++                f"ours ${ours:.2f} vs reference ${ref:.2f} ({drift:.1f}% off)"
++                + (" — stored price is stale or wrong" if drift > 10 else ""),
++                "high"))
++        except Exception as e:
++            checks.append(_check(f"accuracy.{ticker}", False, str(e), "medium"))
++    return checks
++
++
++def _check_upstreams(scrape_price):
++    """Which external data sources actually answer from this host?"""
++    import requests
++    checks = []
++
++    price = None
++    try:
++        price = scrape_price("AAPL")
++    except Exception:
++        pass
++    checks.append(_check(
++        "upstream.price_scrape", bool(price),
++        f"Stooq/Yahoo HTML returned ${price}" if price
++        else "No price source reachable — portfolio and prices will be stale",
++        "high"))
++
++    for name, url in (("yahoo", "https://query1.finance.yahoo.com/v8/finance/chart/AAPL"),
++                      ("openinsider", "http://openinsider.com/latest-cluster-buys")):
++        try:
++            r = requests.get(url, timeout=8, headers={
++                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
++            ok = r.status_code == 200
++            checks.append(_check(f"upstream.{name}", ok,
++                                 f"HTTP {r.status_code}"
++                                 + (" — blocked from this host" if not ok else ""),
++                                 "medium"))
++        except Exception as e:
++            checks.append(_check(f"upstream.{name}", False,
++                                 f"{type(e).__name__}: {e}", "medium"))
++    return checks
++
++
++def _check_config():
++    """Report only whether each variable is set — never its value."""
++    required = {
++        "DATABASE_URL":  "critical",
++        "APP_PASSWORD":  "critical",
++    }
++    optional = {
++        "ANTHROPIC_API_KEY": "medium",
++        "RESEND_KEY":        "low",
++        "VAPID_PRIVATE":     "low",
++        "VAPID_PUBLIC":      "low",
++        "SCAN_TOKEN":        "medium",
++        "SECRET_KEY":        "medium",
++    }
++    checks = []
++    for var, sev in required.items():
++        checks.append(_check(f"config.{var}", bool(os.environ.get(var)),
++                             "set" if os.environ.get(var) else
++                             "MISSING — the app cannot work without this", sev))
++    for var, sev in optional.items():
++        is_set = bool(os.environ.get(var))
++        checks.append(_check(f"config.{var}", True,
++                             "set" if is_set else "not set (feature disabled)", sev))
++    return checks
++
++
++def _check_pages(app, conn, include_slow):
++    """Render each page server-side and report which ones raise."""
++    checks = []
++    try:
++        client = app.test_client()
++        with client.session_transaction() as sess:
++            sess["logged_in"] = True
++            sess["user"] = "healthcheck"
++        for path, name, slow in _PAGES:
++            if slow and not include_slow:
++                continue
++            try:
++                resp = client.get(path)
++                ok = resp.status_code == 200
++                checks.append(_check(
++                    f"page.{name}", ok,
++                    f"HTTP {resp.status_code}"
++                    + ("" if ok else " — this page is broken for users"),
++                    "critical" if not ok else "low"))
++            except Exception as e:
++                checks.append(_check(f"page.{name}", False,
++                                     f"{type(e).__name__}: {e}", "critical"))
++
++        # Detail pages take a ticker, so drive one with a ticker that exists.
++        ticker = None
++        if conn is not None:
++            try:
++                row = conn.execute(
++                    "SELECT ticker FROM scans ORDER BY scan_date DESC LIMIT 1"
++                ).fetchone()
++                ticker = row["ticker"] if row else None
++            except Exception:
++                pass
++        if ticker:
++            try:
++                resp = client.get(f"/stock/{ticker}")
++                ok = resp.status_code == 200
++                checks.append(_check(
++                    "page.stock_detail", ok,
++                    f"/stock/{ticker} → HTTP {resp.status_code}"
++                    + ("" if ok else " — stock detail pages are broken"),
++                    "critical" if not ok else "low"))
++            except Exception as e:
++                checks.append(_check("page.stock_detail", False,
++                                     f"{type(e).__name__}: {e}", "critical"))
++    except Exception as e:
++        checks.append(_check("page.harness", False, str(e), "high"))
++    return checks
++
++
++def _check_backtest(conn):
++    """The backtest loading is not enough — it must actually produce trades."""
++    try:
++        from features import run_backtest
++        result = run_backtest(conn)
++    except Exception as e:
++        return [_check("feature.backtest", False,
++                       f"{type(e).__name__}: {e}", "high")]
++    if result.get("error"):
++        # Too little history is a normal state, not a defect.
++        expected = "at least 2 days" in result["error"]
++        return [_check("feature.backtest", expected, result["error"],
++                       "low" if expected else "high")]
++    trades = result.get("num_trades", 0)
++    return [_check("feature.backtest", trades > 0,
++                   f"{trades} trades, {result.get('total_return')}% return"
++                   if trades else
++                   "Ran but produced 0 trades — the pick filter rejects everything",
++                   "low" if trades else "high")]
++
++
++# ── entry point ───────────────────────────────────────────────────────────────
++
++def run_health_check(app, get_db, batch_fetch_prices, scrape_price, full=False):
++    started = datetime.now()
++    checks  = []
++
++    checks += _check_config()
++
++    db_checks, conn = _check_database(get_db)
++    checks += db_checks
++
++    try:
++        if conn is not None:
++            checks += _check_scan_data(conn)
++            checks += _check_prices(conn, batch_fetch_prices, scrape_price)
++            checks += _check_backtest(conn)
++            if full:
++                checks += _check_price_accuracy(conn, scrape_price)
++
++        if full:
++            checks += _check_upstreams(scrape_price)
++
++        checks += _check_pages(app, conn, include_slow=full)
++    finally:
++        if conn is not None:
++            try:
++                conn.close()
++            except Exception:
++                pass
++
++    failed   = [c for c in checks if not c["ok"]]
++    critical = [c for c in failed if c["severity"] == "critical"]
++
++    return {
++        "ok":       not critical,
++        "degraded": bool(failed) and not critical,
++        "summary":  (f"{len(checks) - len(failed)}/{len(checks)} checks passed"
++                     + (f", {len(critical)} critical" if critical else "")),
++        "failures": [f"{c['name']}: {c['detail']}" for c in failed],
++        "checks":   checks,
++        "mode":     "full" if full else "fast",
++        "elapsed":  round((datetime.now() - started).total_seconds(), 2),
++        "time":     started.isoformat(timespec="seconds"),
++    }
+diff --git a/market_regime.py b/market_regime.py
+index e789f3b..28aa7e3 100644
+--- a/market_regime.py
++++ b/market_regime.py
+@@ -13,7 +13,7 @@ Signals used (all data already collected by analyzer.py):
+   - S&P 500 price vs 50d / 200d moving average
+   - 10yr yield trend (rising = headwind)
+   - Sector breadth (how many sectors have high avg scores)
+-  - % of top 20 stocks with score >= 60
++  - % of top 20 stocks with score >= 20
+ """
+ 
+ import os
+@@ -113,7 +113,7 @@ def detect_market_regime(market: dict, top_stocks: list) -> dict:
+             signals.append({"name": "10yr Yield", "value": f"{tny:.2f}%", "signal": "bearish", "note": "High rates — equity headwind"})
+ 
+     # ── Signal 4: Stock score breadth (weight: 4) ─────────────────────────
+-    # What % of top 20 scanned stocks have score >= 60
++    # What % of top 20 scanned stocks have score >= 20
+     if top_stocks:
+         total_weight += 4
+         high_score = sum(1 for s in top_stocks if (s.get("score") or 0) >= 20)
+diff --git a/monitor.py b/monitor.py
+new file mode 100644
+index 0000000..9df3f37
+--- /dev/null
++++ b/monitor.py
+@@ -0,0 +1,280 @@
++#!/usr/bin/env python3
++"""
++monitor.py
++==========
++Hits the LIVE site the way a real user does — logs in, loads every page,
++checks the data is fresh and correct — then reports exactly what is broken.
++
++Unlike /health (which runs inside the deployment), this runs from outside, so
++it also catches Render being asleep, TLS problems, redirect loops, and pages
++that return 200 but render an error.
++
++Usage:
++    python monitor.py                          # uses env vars
++    python monitor.py --url https://... --password secret
++    python monitor.py --explain                # ask Claude to diagnose failures
++    python monitor.py --quiet                  # only print if something is wrong
++
++Env vars:
++    APP_URL, APP_PASSWORD, HEALTH_TOKEN, ANTHROPIC_API_KEY
++
++Exit codes:  0 = healthy   1 = degraded   2 = down
++"""
++
++import argparse
++import json
++import os
++import sys
++import time
++from datetime import datetime
++
++try:
++    import requests
++except ImportError:
++    print("monitor.py needs the requests package:  pip install requests")
++    sys.exit(2)
++
++UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
++      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
++
++# path, friendly name, substring that must appear when the page renders properly
++PAGES = [
++    ("/",           "Dashboard",     "Convergence"),
++    ("/history",    "History",       "Convergence"),
++    ("/sectors",    "Sectors",       "Convergence"),
++    ("/watchlist",  "Watchlist",     "Convergence"),
++    ("/portfolio",  "Portfolio",     "Convergence"),
++    ("/compare",    "Compare",       "Convergence"),
++    ("/backtest",   "Backtest",      "Convergence"),
++    ("/momentum",   "Momentum",      "Convergence"),
++    ("/analyze",    "Analyze",       "Convergence"),
++    ("/earnings",   "Earnings",      "Convergence"),
++    ("/checklist",  "Checklist",     "Convergence"),
++    ("/ai-picks",   "Claude's Picks","Convergence"),
++]
++
++# Text that means the page rendered an error even though HTTP said 200.
++ERROR_MARKERS = ("Traceback (most recent", "Internal Server Error",
++                 "jinja2.exceptions", "werkzeug.exceptions")
++
++GREEN, RED, YELLOW, DIM, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
++
++
++class Report:
++    def __init__(self):
++        self.results = []      # (ok, severity, name, detail)
++        self.started = datetime.now()
++
++    def add(self, ok, name, detail, severity="high"):
++        self.results.append((ok, severity, name, detail))
++        return ok
++
++    @property
++    def failures(self):
++        return [r for r in self.results if not r[0]]
++
++    @property
++    def critical(self):
++        return [r for r in self.failures if r[1] == "critical"]
++
++    def render(self, quiet=False):
++        if quiet and not self.failures:
++            return
++        print(f"\n  Convergence health — {self.started:%Y-%m-%d %H:%M:%S}")
++        print("  " + "─" * 62)
++        for ok, sev, name, detail in self.results:
++            mark  = f"{GREEN}✓{RESET}" if ok else (
++                    f"{RED}✗{RESET}" if sev == "critical" else f"{YELLOW}!{RESET}")
++            print(f"  {mark} {name:<26} {DIM}{detail}{RESET}")
++        print("  " + "─" * 62)
++        passed = len(self.results) - len(self.failures)
++        if not self.failures:
++            print(f"  {GREEN}All {len(self.results)} checks passed.{RESET}\n")
++        elif self.critical:
++            print(f"  {RED}{len(self.critical)} critical failure(s){RESET} "
++                  f"— {passed}/{len(self.results)} passed\n")
++        else:
++            print(f"  {YELLOW}Degraded{RESET} — {passed}/{len(self.results)} passed\n")
++
++
++def wake(session, url, report, attempts=3):
++    """Render free tier sleeps; the first request can take ~60s."""
++    for i in range(attempts):
++        started = time.time()
++        try:
++            r = session.get(f"{url}/ping", timeout=90)
++            elapsed = time.time() - started
++            if r.status_code == 200:
++                note = f"{elapsed:.1f}s" + (" (cold start)" if elapsed > 8 else "")
++                return report.add(True, "Site reachable", note, "critical")
++            report.add(False, "Site reachable",
++                       f"HTTP {r.status_code} from /ping", "critical")
++            return False
++        except requests.exceptions.RequestException as e:
++            if i == attempts - 1:
++                return report.add(False, "Site reachable",
++                                  f"{type(e).__name__}: {e}", "critical")
++            time.sleep(5)
++    return False
++
++
++def login(session, url, password, report):
++    if not password:
++        report.add(False, "Login", "No password given (set APP_PASSWORD)", "critical")
++        return False
++    try:
++        session.get(f"{url}/login", timeout=30)
++        r = session.post(f"{url}/login", data={"password": password,
++                                               "username": "monitor"},
++                         timeout=30, allow_redirects=False)
++        if r.status_code in (301, 302) and "/login" not in r.headers.get("Location", ""):
++            return report.add(True, "Login", "Accepted", "critical")
++        if r.status_code == 200 and "Wrong password" in r.text:
++            return report.add(False, "Login", "Password rejected", "critical")
++        if r.status_code == 200 and "not configured" in r.text:
++            return report.add(False, "Login",
++                              "APP_PASSWORD is not set on the server", "critical")
++        return report.add(False, "Login", f"Unexpected HTTP {r.status_code}", "critical")
++    except requests.exceptions.RequestException as e:
++        return report.add(False, "Login", f"{type(e).__name__}: {e}", "critical")
++
++
++def check_pages(session, url, report):
++    for path, name, marker in PAGES:
++        try:
++            r = session.get(f"{url}{path}", timeout=90)
++            if r.status_code != 200:
++                report.add(False, name, f"HTTP {r.status_code}", "critical")
++                continue
++            hit = next((m for m in ERROR_MARKERS if m in r.text), None)
++            if hit:
++                report.add(False, name, f"Rendered an error ({hit})", "critical")
++            elif marker and marker not in r.text:
++                report.add(False, name,
++                           "200 but page content looks wrong", "high")
++            else:
++                report.add(True, name, f"{len(r.content) // 1024}kb", "low")
++        except requests.exceptions.RequestException as e:
++            report.add(False, name, f"{type(e).__name__}: {e}", "critical")
++
++
++def check_health_endpoint(session, url, token, report):
++    """Pull the app's internal self-diagnosis."""
++    try:
++        params = {"full": "1"}
++        if token:
++            params["token"] = token
++        r = session.get(f"{url}/health", params=params, timeout=120)
++        if r.status_code == 401:
++            return report.add(False, "Health endpoint",
++                              "Unauthorized — set HEALTH_TOKEN", "high")
++        if r.status_code == 404:
++            return report.add(False, "Health endpoint",
++                              "Not deployed yet (old build still live)", "high")
++        data = r.json()
++        if data.get("error"):
++            return report.add(False, "Health endpoint", data["error"], "critical")
++
++        report.add(bool(data.get("ok")), "Internal diagnosis",
++                   data.get("summary", "?"),
++                   "critical" if not data.get("ok") else "low")
++        # Surface each internal failure as its own line so the cause is obvious.
++        for check in data.get("checks", []):
++            if not check.get("ok"):
++                report.add(False, f"  ↳ {check['name']}", check.get("detail", ""),
++                           check.get("severity", "high"))
++        return bool(data.get("ok"))
++    except ValueError:
++        return report.add(False, "Health endpoint", "Response was not JSON", "high")
++    except requests.exceptions.RequestException as e:
++        return report.add(False, "Health endpoint", f"{type(e).__name__}: {e}", "high")
++
++
++def explain(report, url):
++    """Ask Claude what the failures mean and what to change."""
++    key = os.environ.get("ANTHROPIC_API_KEY", "")
++    if not key:
++        print(f"  {DIM}--explain needs ANTHROPIC_API_KEY{RESET}\n")
++        return
++    if not report.failures:
++        return
++    findings = "\n".join(f"- [{sev}] {name}: {detail}"
++                         for _, sev, name, detail in report.failures)
++    prompt = (
++        "You are diagnosing a Flask stock-analysis app deployed on Render free "
++        "tier with a Supabase Postgres database. Known constraints: Yahoo "
++        "Finance, Zacks and Finviz block Render IPs, so scores max out near 30 "
++        "on a nominal 0-100 scale; Supabase free tier pauses after ~1 week idle; "
++        "Render free tier sleeps after 15 minutes idle.\n\n"
++        f"Automated checks against {url} failed:\n{findings}\n\n"
++        "For each distinct root cause give: what is broken, the most likely "
++        "cause, and the specific fix (env var to set, service to restore, or "
++        "code change). Be concrete and brief. Group related failures — do not "
++        "repeat yourself. If a failure is an expected consequence of the known "
++        "constraints above, say so plainly instead of proposing a fix."
++    )
++    try:
++        r = requests.post(
++            "https://api.anthropic.com/v1/messages",
++            headers={"x-api-key": key, "anthropic-version": "2023-06-01",
++                     "Content-Type": "application/json"},
++            json={"model": "claude-sonnet-4-20250514", "max_tokens": 900,
++                  "messages": [{"role": "user", "content": prompt}]},
++            timeout=60)
++        if r.status_code == 200:
++            print("  Diagnosis")
++            print("  " + "─" * 62)
++            for line in r.json()["content"][0]["text"].strip().splitlines():
++                print(f"  {line}")
++            print()
++        else:
++            print(f"  {DIM}Diagnosis unavailable: HTTP {r.status_code}{RESET}\n")
++    except Exception as e:
++        print(f"  {DIM}Diagnosis unavailable: {e}{RESET}\n")
++
++
++def main():
++    ap = argparse.ArgumentParser(description="Check the live Convergence app.")
++    ap.add_argument("--url",      default=os.environ.get("APP_URL", ""))
++    ap.add_argument("--password", default=os.environ.get("APP_PASSWORD", ""))
++    ap.add_argument("--token",    default=os.environ.get("HEALTH_TOKEN", ""))
++    ap.add_argument("--explain",  action="store_true",
++                    help="ask Claude to diagnose any failures")
++    ap.add_argument("--quiet",    action="store_true",
++                    help="print nothing when everything passes")
++    ap.add_argument("--json",     action="store_true", help="emit JSON instead")
++    args = ap.parse_args()
++
++    if not args.url:
++        print("No URL. Pass --url or set APP_URL.")
++        return 2
++    url = args.url.rstrip("/")
++    if not url.startswith("http"):
++        url = "https://" + url
++
++    report  = Report()
++    session = requests.Session()
++    session.headers.update({"User-Agent": UA})
++
++    if wake(session, url, report):
++        if login(session, url, args.password, report):
++            check_pages(session, url, report)
++            check_health_endpoint(session, url, args.token, report)
++
++    if args.json:
++        print(json.dumps({
++            "ok": not report.failures,
++            "critical": len(report.critical),
++            "checks": [{"ok": o, "severity": s, "name": n, "detail": d}
++                       for o, s, n, d in report.results],
++        }, indent=2))
++    else:
++        report.render(quiet=args.quiet)
++        if args.explain:
++            explain(report, url)
++
++    return 2 if report.critical else (1 if report.failures else 0)
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/scheduler.py b/scheduler.py
+index 7f49e52..a485a15 100644
+--- a/scheduler.py
++++ b/scheduler.py
+@@ -276,8 +276,10 @@ def daily_job():
+             from database import get_db
+             top_tickers = df.head(10)["Ticker"].tolist()
+             conn = get_db()
+-            check_price_alerts(conn, top_tickers, RESEND_KEY, EMAIL_TO)
+-            conn.close()
++            try:
++                check_price_alerts(conn, top_tickers, RESEND_KEY, EMAIL_TO)
++            finally:
++                conn.close()
+         except Exception as e:
+             print(f"  ✗ Price alert error: {e}")
+ 
+diff --git a/templates/ai_picks.html b/templates/ai_picks.html
+index 3124939..da42ca6 100644
+--- a/templates/ai_picks.html
++++ b/templates/ai_picks.html
+@@ -216,7 +216,7 @@
+ <script>
+ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+ document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+diff --git a/templates/analyze.html b/templates/analyze.html
+index 18d94f9..ec9f8ca 100644
+--- a/templates/analyze.html
++++ b/templates/analyze.html
+@@ -309,7 +309,7 @@ async function fetchInstitutional(ticker){try{const res=await fetch(`/api/instit
+ function renderSignal(icon,name,score,max,label){const pct=Math.min(100,Math.round(score/max*100));const color=pct>=65?'bar-green':pct>=40?'bar-yellow':'bar-red';return `<div class="signal-row"><div class="signal-icon">${icon}</div><div class="signal-name">${name}</div><div class="signal-bar-wrap"><div class="signal-bar-track"><div class="signal-bar-fill ${color}" style="width:${pct}%"></div></div></div><div class="signal-value">${label||pct+'%'}</div></div>`;}
+ function streamText(elId,text){const el=document.getElementById(elId);el.innerHTML='';if(!text){el.textContent='Analysis unavailable.';return;}const paragraphs=text.split('\n\n').filter(p=>p.trim());let allWords=[];paragraphs.forEach((p,i)=>{p.split(' ').forEach(w=>allWords.push({word:w,para:i}));});let curPara=-1,curEl=null,i=0;const interval=setInterval(()=>{if(i>=allWords.length){clearInterval(interval);return;}const{word,para}=allWords[i];if(para!==curPara){curEl=document.createElement('p');curPara=para;el.appendChild(curEl);}curEl.textContent+=(curEl.textContent?' ':'')+word;i++;},30);}
+ document.getElementById('ticker-input').addEventListener('keydown',e=>{if(e.key==='Enter')analyze();});
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ 
+ // ── Checklist ──
+ let clTicker='';
+diff --git a/templates/backtest.html b/templates/backtest.html
+index 8320b75..3bc9a35 100644
+--- a/templates/backtest.html
++++ b/templates/backtest.html
+@@ -119,7 +119,7 @@
+ </main>
+ 
+ <script>
+-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
++if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+ document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+ 
+diff --git a/templates/checklist.html b/templates/checklist.html
+index 756dc8c..79e75e0 100644
+--- a/templates/checklist.html
++++ b/templates/checklist.html
+@@ -176,7 +176,7 @@
+ <script>
+ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+ document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+-const TOTAL=13;let currentTicker='';
++const TOTAL=document.querySelectorAll('.check-item').length;let currentTicker='';
+ async function loadTicker(){const input=document.getElementById('ticker-input');const ticker=input.value.trim().toUpperCase();if(!ticker)return;currentTicker=ticker;try{const res=await fetch(`/api/ticker/${ticker}`);const data=await res.json();document.getElementById('empty-state').style.display='none';document.getElementById('checklist-wrap').style.display='block';renderSummary(ticker,data.length>0?data[0]:null,data);loadChecks(ticker);loadNotes(ticker);updateProgress();}catch(e){renderSummary(ticker,null,[]);document.getElementById('checklist-wrap').style.display='block';document.getElementById('empty-state').style.display='none';}}
+ function renderSummary(ticker,data,history){const wrap=document.getElementById('summary');wrap.style.display='block';const score=data?data.score:'–';const upside=data?(data.upside_pct?data.upside_pct.toFixed(1)+'%':'–'):'–';const price=data?('$'+data.price):'–';const streak=data?(data.streak||0):0;wrap.innerHTML=`<div class="summary-card"><div class="summary-score">${typeof score==='number'?Math.round(score):score}</div><div class="summary-info"><div class="summary-ticker">${ticker}</div><div class="summary-label">Score · ${price} · ${upside} upside · ${streak>0?'🔥'+streak+'d streak':'No streak'} · ${history.length} appearances</div><div class="summary-signals"><span class="sig-pill ${score>=25?'sig-on':'sig-off'}">High Conviction</span><span class="sig-pill ${streak>=3?'sig-on':'sig-off'}">3+ Day Streak</span><span class="sig-pill ${history.length>=5?'sig-on':'sig-off'}">Consistent Picker</span></div></div></div>`;}
+ function toggle(el){el.classList.toggle('checked');saveChecks(currentTicker);updateProgress();}
+@@ -186,7 +186,7 @@ function loadChecks(ticker){const saved=localStorage.getItem(`checks_${ticker}`)
+ function saveNotes(){if(!currentTicker)return;localStorage.setItem(`notes_${currentTicker}`,document.getElementById('notes').value);const msg=document.getElementById('saved-msg');msg.style.opacity=1;setTimeout(()=>msg.style.opacity=0,2000);}
+ function loadNotes(ticker){document.getElementById('notes').value=localStorage.getItem(`notes_${ticker}`)||'';}
+ document.getElementById('ticker-input').addEventListener('keydown',e=>{if(e.key==='Enter')loadTicker();});
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+diff --git a/templates/compare.html b/templates/compare.html
+index 617c9ac..5c23b40 100644
+--- a/templates/compare.html
++++ b/templates/compare.html
+@@ -274,7 +274,7 @@
+   <script>
+     if ('serviceWorker' in navigator) {
+       window.addEventListener('load', () => {
+-        navigator.serviceWorker.register('/static/sw.js')
++        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+           .then(r => console.log('SW registered'))
+           .catch(e => console.log('SW failed:', e));
+       });
+diff --git a/templates/dashboard.html b/templates/dashboard.html
+index 37b7984..3a4a840 100644
+--- a/templates/dashboard.html
++++ b/templates/dashboard.html
+@@ -448,7 +448,7 @@ async function enableNotifications(){
+   await subscribePush();
+ }
+ if('serviceWorker' in navigator){
+-  navigator.serviceWorker.register('/static/sw.js').then(reg=>{
++  navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg=>{
+     reg.addEventListener('updatefound',()=>{
+       const newSW=reg.installing;
+       newSW.addEventListener('statechange',()=>{
+diff --git a/templates/earnings.html b/templates/earnings.html
+index 1f870fd..6e8527a 100644
+--- a/templates/earnings.html
++++ b/templates/earnings.html
+@@ -136,7 +136,7 @@
+   {% endif %}
+ </main>
+ <script>
+-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
++  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' });
+   function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+   document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+ </script>
+diff --git a/templates/history.html b/templates/history.html
+index 91aef1b..e458c0c 100644
+--- a/templates/history.html
++++ b/templates/history.html
+@@ -152,7 +152,7 @@
+           <td><a href="{{ url_for('stock_detail', ticker=s.ticker) }}" class="tk">{{ s.ticker }}</a></td>
+           <td>
+             <div class="bar-wrap">
+-              <div class="bar-track"><div class="bar-fill" style="width:{{ s.avg_score }}%"></div></div>
++              <div class="bar-track"><div class="bar-fill" style="width:{{ [s.avg_score * 3.3, 100]|min }}%"></div></div>
+               <span class="score-pill {{ 'score-high' if s.avg_score >= 25 else ('score-mid' if s.avg_score >= 15 else 'score-low') }}">{{ '%0.0f'|format(s.avg_score) }}</span>
+             </div>
+           </td>
+@@ -195,7 +195,7 @@
+ <script>
+ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+ document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+diff --git a/templates/momentum.html b/templates/momentum.html
+index 70918a0..74a2ac9 100644
+--- a/templates/momentum.html
++++ b/templates/momentum.html
+@@ -506,7 +506,7 @@ function closePanel() {
+ // Close on Escape key
+ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+ 
+-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
++if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+diff --git a/templates/portfolio.html b/templates/portfolio.html
+index 8d64a1c..bda49ae 100644
+--- a/templates/portfolio.html
++++ b/templates/portfolio.html
+@@ -423,7 +423,7 @@ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggl
+ async function loadPortfolioEarnings(){const wrap=document.getElementById('earnings-body');if(!wrap)return;try{const r=await fetch('/api/portfolio/earnings');const data=await r.json();if(!Array.isArray(data)||!data.length){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">No upcoming earnings dates found for your holdings.</div>';return;}const rows=data.sort((a,b)=>a.days_away-b.days_away).map(e=>{const urgent=e.days_away>=0&&e.days_away<=7;const c=urgent?'var(--red)':'var(--muted)';return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:12px;"><a href="/stock/${e.ticker}" style="font-family:'DM Mono',monospace;font-weight:600;color:var(--gold);text-decoration:none;">${e.ticker}</a><span style="font-size:12px;color:var(--muted);">${e.date||'–'}</span></div><span style="font-size:12px;color:${c};font-weight:${urgent?'600':'400'};">${urgent?'🔔 ':''}${e.days_away<0?'Recently reported':e.days_away===0?'Today':e.days_away===1?'Tomorrow':e.days_away+' days'}</span></div>`}).join('');wrap.innerHTML=rows;}catch(e){wrap.innerHTML='<div style="color:var(--muted);font-size:13px;">Could not load earnings data.</div>';}}
+ window.addEventListener('load',()=>{loadPortfolioEarnings();});
+ function refreshPrices(){const btn=document.querySelector('.refresh-btn');btn.innerHTML='<span class="loading-spinner"></span>Refreshing…';btn.disabled=true;fetch('/api/portfolio/prices').then(r=>r.json()).then(data=>{data.forEach(h=>{const p=document.querySelector(`.price-cell-${h.ticker}`),v=document.querySelector(`.value-cell-${h.ticker}`);if(p&&h.current_price)p.textContent='$'+h.current_price.toFixed(2);if(v&&h.current_value)v.textContent='$'+h.current_value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});});btn.innerHTML='↻ Refresh Prices';btn.disabled=false;}).catch(()=>{btn.innerHTML='↻ Refresh Prices';btn.disabled=false;});}
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+diff --git a/templates/sectors.html b/templates/sectors.html
+index f3b335b..8400ba1 100644
+--- a/templates/sectors.html
++++ b/templates/sectors.html
+@@ -128,7 +128,7 @@
+   {% if sectors %}
+   <div class="heatmap">
+     {% for s in sectors %}
+-    {% set intensity = (s.avg_score / 100) %}
++    {% set intensity = ([s.avg_score, 30]|min / 30) %}
+     {% set r = (18 + intensity * 40)|int %}
+     {% set g = (22 + intensity * 20)|int %}
+     {% set b = (40 + intensity * 10)|int %}
+@@ -138,7 +138,7 @@
+       <div class="sector-score" style="color: {{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }}">{{ s.avg_score|int }}</div>
+       <div class="sector-count">{{ s.count }} stock{{ 's' if s.count != 1 else '' }} in top picks</div>
+       <div class="sector-tickers">{{ s.tickers }}</div>
+-      <div class="sector-bar" style="width: {{ s.avg_score }}%; background: {{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }};"></div>
++      <div class="sector-bar" style="width: {{ [s.avg_score * 3.3, 100]|min }}%; background: {{ '#4ade80' if s.avg_score >= 20 else ('#fbbf24' if s.avg_score >= 12 else '#6b7280') }};"></div>
+     </div>
+     {% endfor %}
+   </div>
+@@ -182,7 +182,7 @@
+   <script>
+     if ('serviceWorker' in navigator) {
+       window.addEventListener('load', () => {
+-        navigator.serviceWorker.register('/static/sw.js')
++        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+           .then(r => console.log('SW registered'))
+           .catch(e => console.log('SW failed:', e));
+       });
+diff --git a/templates/stock_detail.html b/templates/stock_detail.html
+index 83d6e46..2af759f 100644
+--- a/templates/stock_detail.html
++++ b/templates/stock_detail.html
+@@ -254,9 +254,9 @@ document.addEventListener('DOMContentLoaded',()=>buildWidget('1M'));
+ </script>
+ {% if chart_dates %}
+ <script>
+-new Chart(document.getElementById('scoreChart').getContext('2d'),{type:'line',data:{labels:{{ chart_dates|tojson }},datasets:[{label:'Score',data:{{ chart_scores|tojson }},borderColor:'#c9a84c',backgroundColor:'rgba(201,168,76,0.08)',borderWidth:2,pointBackgroundColor:'#c9a84c',pointRadius:4,tension:0.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#6b7280',font:{size:11}},grid:{color:'rgba(107,114,128,0.15)'}},x:{ticks:{color:'#6b7280',font:{size:11},maxRotation:30},grid:{display:false}}}}});
++new Chart(document.getElementById('scoreChart').getContext('2d'),{type:'line',data:{labels:{{ chart_dates|tojson }},datasets:[{label:'Score',data:{{ chart_scores|tojson }},borderColor:'#c9a84c',backgroundColor:'rgba(201,168,76,0.08)',borderWidth:2,pointBackgroundColor:'#c9a84c',pointRadius:4,tension:0.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,suggestedMax:35,ticks:{color:'#6b7280',font:{size:11}},grid:{color:'rgba(107,114,128,0.15)'}},x:{ticks:{color:'#6b7280',font:{size:11},maxRotation:30},grid:{display:false}}}}});
+ </script>
+ {% endif %}
+-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');</script>
++<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });</script>
+ </body>
+ </html>
+diff --git a/templates/watchlist.html b/templates/watchlist.html
+index 5cadd7c..a3f590c 100644
+--- a/templates/watchlist.html
++++ b/templates/watchlist.html
+@@ -195,7 +195,7 @@
+ <script>
+ function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
+ document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
+-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
++if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
+ </script>
+ </body>
+ </html>
+-- 
+2.43.0
+
