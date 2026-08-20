@@ -506,7 +506,7 @@ function closePanel() {
 // Close on Escape key
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' });
 </script>
 </body>
 </html>

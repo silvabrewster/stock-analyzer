@@ -176,7 +176,7 @@
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
-const TOTAL=13;let currentTicker='';
+const TOTAL=document.querySelectorAll('.check-item').length;let currentTicker='';
 async function loadTicker(){const input=document.getElementById('ticker-input');const ticker=input.value.trim().toUpperCase();if(!ticker)return;currentTicker=ticker;try{const res=await fetch(`/api/ticker/${ticker}`);const data=await res.json();document.getElementById('empty-state').style.display='none';document.getElementById('checklist-wrap').style.display='block';renderSummary(ticker,data.length>0?data[0]:null,data);loadChecks(ticker);loadNotes(ticker);updateProgress();}catch(e){renderSummary(ticker,null,[]);document.getElementById('checklist-wrap').style.display='block';document.getElementById('empty-state').style.display='none';}}
 function renderSummary(ticker,data,history){const wrap=document.getElementById('summary');wrap.style.display='block';const score=data?data.score:'–';const upside=data?(data.upside_pct?data.upside_pct.toFixed(1)+'%':'–'):'–';const price=data?('$'+data.price):'–';const streak=data?(data.streak||0):0;wrap.innerHTML=`<div class="summary-card"><div class="summary-score">${typeof score==='number'?Math.round(score):score}</div><div class="summary-info"><div class="summary-ticker">${ticker}</div><div class="summary-label">Score · ${price} · ${upside} upside · ${streak>0?'🔥'+streak+'d streak':'No streak'} · ${history.length} appearances</div><div class="summary-signals"><span class="sig-pill ${score>=25?'sig-on':'sig-off'}">High Conviction</span><span class="sig-pill ${streak>=3?'sig-on':'sig-off'}">3+ Day Streak</span><span class="sig-pill ${history.length>=5?'sig-on':'sig-off'}">Consistent Picker</span></div></div></div>`;}
 function toggle(el){el.classList.toggle('checked');saveChecks(currentTicker);updateProgress();}
@@ -186,7 +186,7 @@ function loadChecks(ticker){const saved=localStorage.getItem(`checks_${ticker}`)
 function saveNotes(){if(!currentTicker)return;localStorage.setItem(`notes_${currentTicker}`,document.getElementById('notes').value);const msg=document.getElementById('saved-msg');msg.style.opacity=1;setTimeout(()=>msg.style.opacity=0,2000);}
 function loadNotes(ticker){document.getElementById('notes').value=localStorage.getItem(`notes_${ticker}`)||'';}
 document.getElementById('ticker-input').addEventListener('keydown',e=>{if(e.key==='Enter')loadTicker();});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
 </script>
 </body>
 </html>

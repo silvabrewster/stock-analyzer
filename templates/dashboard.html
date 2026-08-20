@@ -448,7 +448,7 @@ async function enableNotifications(){
   await subscribePush();
 }
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/static/sw.js').then(reg=>{
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg=>{
     reg.addEventListener('updatefound',()=>{
       const newSW=reg.installing;
       newSW.addEventListener('statechange',()=>{

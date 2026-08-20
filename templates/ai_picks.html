@@ -216,7 +216,7 @@
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
 </script>
 </body>
 </html>

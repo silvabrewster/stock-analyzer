@@ -152,7 +152,7 @@
           <td><a href="{{ url_for('stock_detail', ticker=s.ticker) }}" class="tk">{{ s.ticker }}</a></td>
           <td>
             <div class="bar-wrap">
-              <div class="bar-track"><div class="bar-fill" style="width:{{ s.avg_score }}%"></div></div>
+              <div class="bar-track"><div class="bar-fill" style="width:{{ [s.avg_score * 3.3, 100]|min }}%"></div></div>
               <span class="score-pill {{ 'score-high' if s.avg_score >= 25 else ('score-mid' if s.avg_score >= 15 else 'score-low') }}">{{ '%0.0f'|format(s.avg_score) }}</span>
             </div>
           </td>
@@ -195,7 +195,7 @@
 <script>
 function toggleMobileMenu(){document.getElementById('hamburger').classList.toggle('open');document.getElementById('mobile-menu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('mobile-menu'),h=document.getElementById('hamburger');if(m&&h&&!m.contains(e.target)&&!h.contains(e.target)){m.classList.remove('open');h.classList.remove('open');}});
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js', { scope: '/' });
 </script>
 </body>
 </html>
