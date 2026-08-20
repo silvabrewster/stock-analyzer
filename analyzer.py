@@ -38,7 +38,7 @@ SECTOR_MAP = {
     "SNOW":"Technology","PLTR":"Technology","CRWD":"Technology","NET":"Technology","ZS":"Technology",
     "JPM":"Financial Services","BAC":"Financial Services","WFC":"Financial Services","GS":"Financial Services",
     "MS":"Financial Services","V":"Financial Services","MA":"Financial Services","AXP":"Financial Services",
-    "BRK.B":"Financial Services","C":"Financial Services","BLK":"Financial Services",
+    "BRK-B":"Financial Services","C":"Financial Services","BLK":"Financial Services",
     "UNH":"Healthcare","LLY":"Healthcare","JNJ":"Healthcare","ABBV":"Healthcare","MRK":"Healthcare",
     "PFE":"Healthcare","TMO":"Healthcare","ABT":"Healthcare","DHR":"Healthcare","ISRG":"Healthcare",
     "XOM":"Energy","CVX":"Energy","COP":"Energy","SLB":"Energy","EOG":"Energy",
@@ -369,6 +369,11 @@ def get_yahoo_strong_buys(tickers: list) -> dict:
                 "revision_up":        revision_up,
                 "short_pct":          round(short_pct * 100, 1),
                 "sector":             sector,
+                # Passed through for get_morningstar_ratings so it does not have
+                # to re-fetch .info for fundamentals we already have here.
+                "roe":                info.get("returnOnEquity"),
+                "profit_margin":      info.get("profitMargins"),
+                "forward_pe":         info.get("forwardPE"),
             }
             time.sleep(0.35)
         except Exception as e:
@@ -447,9 +452,13 @@ def get_morningstar_ratings(tickers: list, yahoo_data: dict = None) -> dict:
                         current = t_obj.fast_info.last_price
                 except Exception:
                     pass
-            roe           = info.get("returnOnEquity", 0) or 0
-            profit_margin = info.get("profitMargins", 0) or 0
-            forward_pe    = info.get("forwardPE")
+            # Prefer fundamentals already carried in yahoo_data. Previously these
+            # only came from the .info fetch above, which is skipped whenever
+            # yahoo_data supplied a price — so they were always 0 and ms_strong
+            # (which needs 3 points) could never be True.
+            roe           = y.get("roe")           or info.get("returnOnEquity", 0) or 0
+            profit_margin = y.get("profit_margin") or info.get("profitMargins", 0)  or 0
+            forward_pe    = y.get("forward_pe")    or info.get("forwardPE")
             discount = None
             if target and current and current > 0:
                 discount = (target - current) / current
@@ -687,7 +696,7 @@ def compute_consensus(
             "52w Position":     f"{week52}%" if week52 is not None else "n/a",
             "Beta":             beta if beta else "n/a",
             "Div Yield":        f"{div}%" if div and div > 0 else "–",
-            "Price":            y.get("current_price", "n/a"),
+            "Price":            y.get("current_price") if y.get("current_price") is not None else "n/a",
             "Upside %":         f"{upside}%" if upside is not None else "n/a",
             "# Analysts":       y.get("yahoo_num_analysts", "n/a"),
             "Sector":           SECTOR_MAP.get(ticker) or (y.get("sector") or "Unknown"),
@@ -727,14 +736,14 @@ def print_results(df: pd.DataFrame, top_n: int = 15, market: dict = {}):
     print("  STOCK CONVERGENCE ANALYZER v3.1  —  7-Source | Signal Alignment")
     print(f"  Run: {datetime.now().strftime('%Y-%m-%d %H:%M')}  |  Universe: {len(df)} tickers")
     sp_arrow = "▲" if (sp.get("chg") or 0) > 0 else "▼"
-    print(f"  S&P 500: {sp.get('price','n/a')} {sp_arrow}{abs(sp.get('chg',0))}%  |  "
+    print(f"  S&P 500: {sp.get('price','n/a')} {sp_arrow}{abs(sp.get('chg') or 0)}%  |  "
           f"VIX: {vix.get('price','n/a')}  |  10yr Yield: {tny.get('price','n/a')}%")
     print("═" * 100)
-    high   = df[df["Consensus Score"] >= 20]
-    medium = df[(df["Consensus Score"] >= 10) & (df["Consensus Score"] < 20)]
-    print(f"\n🟢  HIGH CONVICTION  (score ≥ 20)  —  {len(high)} stocks\n")
+    high   = df[df["Consensus Score"] >= 25]
+    medium = df[(df["Consensus Score"] >= 15) & (df["Consensus Score"] < 25)]
+    print(f"\n🟢  HIGH CONVICTION  (score ≥ 25)  —  {len(high)} stocks\n")
     _print_table(high.head(top_n)) if not high.empty else print("  None found.")
-    print(f"\n🟡  MODERATE CONVICTION  (score 10–19)  —  {len(medium)} stocks\n")
+    print(f"\n🟡  MODERATE CONVICTION  (score 15–24)  —  {len(medium)} stocks\n")
     _print_table(medium.head(top_n)) if not medium.empty else print("  None found.")
     print("\n" + "─" * 100)
     print("Score: Yahoo(22)+Zacks(22)+MS(18)+Insider(12)+Vanguard(10)+EPS(8)+RS(8)+Alignment(+8 bonus)")

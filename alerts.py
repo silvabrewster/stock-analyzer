@@ -41,10 +41,10 @@ def send_push_to_all(conn, payload: dict):
         print(f"Push broadcast error: {e}")
 
 
-def save_alert(conn, ticker: str, alert_type: str, message: str):
+def save_alert(conn, ticker: str, alert_type: str, message: str, user_id: str = "default"):
     conn.execute(
-        "INSERT INTO alerts (ticker, type, message) VALUES (?, ?, ?)",
-        (ticker, alert_type, message)
+        "INSERT INTO alerts (ticker, type, message, user_id) VALUES (?, ?, ?, ?)",
+        (ticker, alert_type, message, user_id)
     )
     icon_map = {
         "breakout":    "📈",
@@ -183,7 +183,7 @@ def check_alerts(conn):
 
         # ── Check 4: Portfolio holdings ±5% ───────────────────────────────
         try:
-            portfolio = aconn.execute("SELECT DISTINCT ticker, buy_price FROM portfolio").fetchall()
+            portfolio = aconn.execute("SELECT DISTINCT ticker, buy_price, user_id FROM portfolio").fetchall()
             import yfinance as yf
             from concurrent.futures import ThreadPoolExecutor as _TPE, TimeoutError as _FT
             def _get_price(t):
@@ -202,7 +202,8 @@ def check_alerts(conn):
                         if abs(chg) >= 5:
                             direction = "up" if chg>0 else "down"
                             new_alerts.append((ticker, "portfolio",
-                                f"Your holding is {direction} {abs(chg):.1f}% from your buy price"))
+                                f"Your holding is {direction} {abs(chg):.1f}% from your buy price",
+                                holding["user_id"]))
                 except Exception:
                     pass
         except Exception:
@@ -211,7 +212,7 @@ def check_alerts(conn):
         # ── Check 5: Watchlist price targets (NEW) ─────────────────────────
         try:
             watchlist = aconn.execute(
-                "SELECT ticker, target_price FROM watchlist WHERE target_price IS NOT NULL"
+                "SELECT ticker, target_price, user_id FROM watchlist WHERE target_price IS NOT NULL"
             ).fetchall()
             import yfinance as yf
             for w in watchlist:
@@ -242,11 +243,13 @@ def check_alerts(conn):
                         # Alert when price drops TO or BELOW target (buying opportunity)
                         if diff_pct <= 0:
                             new_alerts.append((ticker, "price_target",
-                                f"Hit your target! Now at ${current_price:.2f} (target: ${target_price:.2f}) — potential buy zone"))
+                                f"Hit your target! Now at ${current_price:.2f} (target: ${target_price:.2f}) — potential buy zone",
+                                w["user_id"]))
                         # Also alert when within 2% of target
                         elif diff_pct <= 2:
                             new_alerts.append((ticker, "price_target",
-                                f"Near your target — ${current_price:.2f} is {diff_pct:.1f}% above your ${target_price:.2f} target"))
+                                f"Near your target — ${current_price:.2f} is {diff_pct:.1f}% above your ${target_price:.2f} target",
+                                w["user_id"]))
                 except Exception:
                     pass
         except Exception:
@@ -279,15 +282,17 @@ def check_alerts(conn):
             print(f"Insider alert check error: {e}")
 
         # Save all new alerts
-        for ticker, atype, message in new_alerts:
-            save_alert(aconn, ticker, atype, message)
+        for entry in new_alerts:
+            ticker, atype, message = entry[0], entry[1], entry[2]
+            user_id = entry[3] if len(entry) > 3 else "default"
+            save_alert(aconn, ticker, atype, message, user_id)
         if new_alerts:
             aconn.commit()
 
     except Exception as e:
         print(f"Alert check internal error: {e}")
         try:
-            if aconn: aconn._conn.rollback()
+            if aconn: aconn.rollback()
         except Exception: pass
     finally:
         try:

@@ -276,8 +276,10 @@ def daily_job():
             from database import get_db
             top_tickers = df.head(10)["Ticker"].tolist()
             conn = get_db()
-            check_price_alerts(conn, top_tickers, RESEND_KEY, EMAIL_TO)
-            conn.close()
+            try:
+                check_price_alerts(conn, top_tickers, RESEND_KEY, EMAIL_TO)
+            finally:
+                conn.close()
         except Exception as e:
             print(f"  ✗ Price alert error: {e}")
 

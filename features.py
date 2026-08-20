@@ -284,7 +284,7 @@ def run_backtest(conn) -> dict:
             except (KeyError, TypeError, ValueError):
                 continue
 
-            if (pick.get("score") or 0) < 60:
+            if (pick["score"] or 0) < 10:
                 continue
 
             # Use next day's stored price for same ticker if available, else next pick's price
@@ -315,7 +315,7 @@ def run_backtest(conn) -> dict:
             })
 
         if not results:
-            return {"error": "No trades could be calculated. Make sure scans have price data and scores ≥ 60."}
+            return {"error": "No trades could be calculated. Make sure scans have price data."}
 
         total_return = round((portfolio - 10000) / 10000 * 100, 1)
         sp_return    = round((sp_end - sp_start) / sp_start * 100, 1) if sp_start and sp_end else 0

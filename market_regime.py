@@ -13,7 +13,7 @@ Signals used (all data already collected by analyzer.py):
   - S&P 500 price vs 50d / 200d moving average
   - 10yr yield trend (rising = headwind)
   - Sector breadth (how many sectors have high avg scores)
-  - % of top 20 stocks with score >= 60
+  - % of top 20 stocks with score >= 20
 """
 
 import os
@@ -113,7 +113,7 @@ def detect_market_regime(market: dict, top_stocks: list) -> dict:
             signals.append({"name": "10yr Yield", "value": f"{tny:.2f}%", "signal": "bearish", "note": "High rates — equity headwind"})
 
     # ── Signal 4: Stock score breadth (weight: 4) ─────────────────────────
-    # What % of top 20 scanned stocks have score >= 60
+    # What % of top 20 scanned stocks have score >= 20
     if top_stocks:
         total_weight += 4
         high_score = sum(1 for s in top_stocks if (s.get("score") or 0) >= 20)

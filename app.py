@@ -99,17 +99,25 @@ def init_db():
             week52_range TEXT, beats_mkt TEXT, mo_return TEXT, insider_buy TEXT,
             short_squeeze TEXT, short_float TEXT, signals TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
+        # Rows are per-user, so uniqueness must be (ticker, user_id). A bare
+        # UNIQUE(ticker) means the second user to add a ticker hits a constraint
+        # violation instead of getting their own row.
         """CREATE TABLE IF NOT EXISTS portfolio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL UNIQUE,
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
             shares REAL NOT NULL, buy_price REAL NOT NULL, notes TEXT,
-            added_date TEXT DEFAULT CURRENT_TIMESTAMP)""",
+            user_id TEXT NOT NULL DEFAULT 'default',
+            added_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(ticker, user_id))""",
         """CREATE TABLE IF NOT EXISTS watchlist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL UNIQUE,
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
             target_price REAL, notes TEXT,
-            added_date TEXT DEFAULT CURRENT_TIMESTAMP)""",
+            user_id TEXT NOT NULL DEFAULT 'default',
+            added_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(ticker, user_id))""",
         """CREATE TABLE IF NOT EXISTS alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, ticker TEXT NOT NULL,
             type TEXT NOT NULL, message TEXT NOT NULL, seen INTEGER DEFAULT 0,
+            user_id TEXT NOT NULL DEFAULT 'default',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP)""",
         """CREATE TABLE IF NOT EXISTS push_subscriptions (
             id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL UNIQUE,
@@ -141,6 +149,14 @@ def init_db():
         "ALTER TABLE market_conditions ADD COLUMN regime_confidence INTEGER",
         "ALTER TABLE portfolio ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
         "ALTER TABLE watchlist ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
+        "ALTER TABLE alerts ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'",
+        # Replace the old single-column UNIQUE(ticker) with UNIQUE(ticker, user_id)
+        # on databases created before the fix. Postgres only; SQLite cannot drop a
+        # constraint, and these are best-effort, so it simply skips there.
+        "ALTER TABLE portfolio DROP CONSTRAINT IF EXISTS portfolio_ticker_key",
+        "ALTER TABLE watchlist DROP CONSTRAINT IF EXISTS watchlist_ticker_key",
+        "ALTER TABLE portfolio ADD CONSTRAINT portfolio_ticker_user_key UNIQUE (ticker, user_id)",
+        "ALTER TABLE watchlist ADD CONSTRAINT watchlist_ticker_user_key UNIQUE (ticker, user_id)",
         """CREATE TABLE IF NOT EXISTS ai_predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             prediction_date TEXT NOT NULL,
@@ -184,11 +200,14 @@ def save_scan_to_db(df, market: dict):
     tny = market.get("tny", {})
     conn.execute("""
         INSERT INTO market_conditions
-        (scan_date, sp500, sp500_chg, vix, tny, ai_brief)
-        VALUES (?,?,?,?,?,?)
+        (scan_date, sp500, sp500_chg, vix, tny, ai_brief,
+         regime, regime_label, regime_confidence)
+        VALUES (?,?,?,?,?,?,?,?,?)
     """, (today, _to_float(sp.get("price")), _to_float(sp.get("chg")),
           _to_float(vix.get("price")), _to_float(tny.get("price")),
-          market.get("ai_brief","")))
+          market.get("ai_brief",""),
+          market.get("regime"), market.get("regime_label"),
+          market.get("regime_confidence")))
     for _, row in df.head(20).iterrows():
         def safe(key, default=None):
             v = row.get(key, default)
@@ -394,7 +413,7 @@ def dashboard():
         brief_row = conn.execute(
             "SELECT ai_brief FROM market_conditions WHERE scan_date = ?", (latest_date,)
         ).fetchone()
-        if brief_row and brief_row.get("ai_brief"):
+        if brief_row and brief_row["ai_brief"]:
             ai_brief = brief_row["ai_brief"]
     except Exception:
         pass
@@ -742,7 +761,10 @@ def api_analyze(ticker):
         )
         from features import get_smart_buy_rating
         smart_buy = get_smart_buy_rating(
-            score=analyst_score, upside_pct=upside, short_pct=short_pct,
+            # analyst_score is 0-100, but get_smart_buy_rating's thresholds are on
+            # the ~0-30 convergence scale. Passing it raw made a neutral 3.0
+            # analyst rating clear the "Strong Buy" bar twice over.
+            score=round(analyst_score * 0.30), upside_pct=upside, short_pct=short_pct,
             week52_pos=week52_pos, beta=beta, price=price, price_target=price_target
         )
         alignment = {}
@@ -836,7 +858,7 @@ def stock_detail(ticker):
     conn   = get_db()
     history = conn.execute("SELECT * FROM scans WHERE ticker=? ORDER BY scan_date DESC LIMIT 60",(ticker,)).fetchall()
     stats   = conn.execute("SELECT COUNT(*) as appearances, AVG(score) as avg_score, MAX(score) as max_score, MAX(streak) as max_streak FROM scans WHERE ticker=?",(ticker,)).fetchone()
-    latest         = history[0] if history else None
+    latest         = dict(history[0]) if history else None
     latest_score   = int(latest["score"]) if latest else "–"
     current_streak = latest["streak"] if latest else 0
     appearances    = stats["appearances"] if stats else 0
@@ -1091,7 +1113,13 @@ def earnings_calendar():
     conn.close()
     if not tickers_in_scan: return render_template("earnings.html",urgent=[],upcoming=[])
     from features import get_earnings_calendar
-    earnings=get_earnings_calendar(tickers_in_scan[:15])
+    try:
+        # as_completed(timeout=20) raises out of the iterator, not the worker, so
+        # a blocked/slow Yahoo (the norm on Render) would 500 the whole page.
+        earnings=get_earnings_calendar(tickers_in_scan[:15])
+    except Exception as e:
+        print(f"Earnings calendar error: {e}")
+        return render_template("earnings.html",urgent=[],upcoming=[])
     for e in earnings: e["score"]=scores.get(e["ticker"])
     return render_template("earnings.html",urgent=[e for e in earnings if e["days_away"]<=7],upcoming=[e for e in earnings if e["days_away"]>7])
 
@@ -1153,8 +1181,17 @@ def api_portfolio_earnings():
 @login_required
 def api_alerts():
     conn=get_db()
-    rows=conn.execute("SELECT id,ticker,type,message,created_at FROM alerts WHERE seen=0 ORDER BY created_at DESC LIMIT 20").fetchall()
-    conn.close()
+    try:
+        # Alerts are generated from a user's own portfolio/watchlist, so they
+        # must not be shown to anyone else. 'default' stays visible to all so
+        # alerts created before user scoping existed are not orphaned.
+        rows=conn.execute(
+            "SELECT id,ticker,type,message,created_at FROM alerts "
+            "WHERE seen=0 AND (user_id=? OR user_id='default') "
+            "ORDER BY created_at DESC LIMIT 20",
+            (session.get("user","default"),)).fetchall()
+    finally:
+        conn.close()
     return jsonify({"alerts":[dict(r) for r in rows]})
 
 @app.route("/api/alerts/clear",methods=["POST"])
@@ -1162,7 +1199,8 @@ def api_alerts():
 def api_alerts_clear():
     conn=get_db()
     try:
-        conn.execute("UPDATE alerts SET seen=1 WHERE seen=0")
+        conn.execute("UPDATE alerts SET seen=1 WHERE seen=0 AND (user_id=? OR user_id='default')",
+                     (session.get("user","default"),))
         conn.commit()
     finally:
         conn.close()
@@ -1228,6 +1266,27 @@ def api_institutional(ticker):
 @app.route("/ping")
 def ping():
     return "pong",200
+
+@app.route("/health")
+def health():
+    """Self-diagnostic. ?full=1 also probes upstreams and renders slow pages.
+    Set HEALTH_TOKEN to require ?token=... ; otherwise open (returns no secrets)."""
+    expected = os.environ.get("HEALTH_TOKEN", "")
+    if expected:
+        token = request.headers.get("X-Health-Token") or request.args.get("token", "")
+        if token != expected:
+            return jsonify({"error": "unauthorized"}), 401
+    try:
+        from health import run_health_check
+        result = run_health_check(
+            app, get_db, batch_fetch_prices, _scrape_price,
+            full=request.args.get("full") in ("1", "true", "yes"),
+        )
+        return jsonify(result), (200 if result["ok"] else 503)
+    except Exception as e:
+        import traceback
+        return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}",
+                        "trace": traceback.format_exc()[-1500:]}), 500
 
 @app.route("/api/run-scan", methods=["POST"])
 def api_run_scan():
@@ -1298,9 +1357,14 @@ def api_ai_picks_regenerate():
     conn.close()
     return redirect(url_for("ai_picks"))
 
-@app.route("/seed")
+@app.route("/seed", methods=["POST"])
 @login_required
 def seed():
+    # POST-only and opt-in: this deletes the day's real scan results and
+    # replaces them with demo rows. As a GET route any prefetch or link
+    # scanner could silently destroy a live scan.
+    if os.environ.get("ALLOW_SEED", "") != "1":
+        return jsonify({"error": "Seeding is disabled. Set ALLOW_SEED=1 to enable."}), 403
     conn=get_db(); today=datetime.now().strftime("%Y-%m-%d")
     conn.execute("DELETE FROM scans WHERE scan_date=?",(today,)); conn.execute("DELETE FROM market_conditions WHERE scan_date=?",(today,))
     conn.execute("INSERT INTO market_conditions (scan_date,sp500,sp500_chg,vix,tny,regime,regime_label,regime_confidence) VALUES (?,?,?,?,?,?,?,?)",(today,5234.18,0.43,18.2,4.31,"neutral_bull","Cautious Bull",62))
